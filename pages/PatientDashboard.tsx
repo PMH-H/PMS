@@ -16,11 +16,11 @@ interface PatientDashboardProps {
     onLogSearch: (term: string, type: 'PRODUCT' | 'SYMPTOM') => void;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ 
-    prescriptions, 
+const PatientDashboard: React.FC<PatientDashboardProps> = ({
+    prescriptions,
     inventory,
     inventoryStock,
-    onAddPrescription, 
+    onAddPrescription,
     logAIAction,
     notifications,
     onMarkNotificationAsRead,
@@ -42,17 +42,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState<string>('All');
     const [onlyInStock, setOnlyInStock] = useState(false);
-    
+
     // -- Assistant State --
     const [symptomInput, setSymptomInput] = useState('');
-    const [aiAnalysis, setAiAnalysis] = useState<{summary: string, redFlags: string[], suggestedQuestions: string[], disclaimer: string} | null>(null);
+    const [aiAnalysis, setAiAnalysis] = useState<{ summary: string, redFlags: string[], suggestedQuestions: string[], disclaimer: string } | null>(null);
     const [isThinking, setIsThinking] = useState(false);
 
     // -- Computed --
     const unreadCount = notifications.filter(n => !n.read).length;
 
     // Helper: Stock Check
-    const getStock = (drugId: string) => inventoryStock.filter(b => b.drug_id === drugId).reduce((a,b) => a+b.current_units, 0);
+    const getStock = (drugId: string) => inventoryStock.filter(b => b.drug_id === drugId).reduce((a, b) => a + b.current_units, 0);
 
     // Filtered Products
     const filteredInventory = useMemo(() => {
@@ -124,7 +124,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
 
     const handleSymptomCheck = async () => {
         if (!symptomInput.trim()) return;
-        
+
         if (userPrivacy?.allowAI && userPrivacy?.shareBrowsing) {
             onLogSearch(symptomInput, 'SYMPTOM');
         }
@@ -142,21 +142,29 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg pb-safe z-40">
             <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
                 {[
-                    { id: 'HOME', icon: (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                    ), label: 'Home' },
-                    { id: 'SHOP', icon: (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                    ), label: 'Shop' },
-                    { id: 'ASSISTANT', icon: (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-                    ), label: 'AI Chat' },
-                    { id: 'PROFILE', icon: (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                    ), label: 'Profile' }
+                    {
+                        id: 'HOME', icon: (
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                        ), label: 'Home'
+                    },
+                    {
+                        id: 'SHOP', icon: (
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                        ), label: 'Shop'
+                    },
+                    {
+                        id: 'ASSISTANT', icon: (
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                        ), label: 'AI Chat'
+                    },
+                    {
+                        id: 'PROFILE', icon: (
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        ), label: 'Profile'
+                    }
                 ].map((item) => (
-                    <button 
-                        key={item.id} 
+                    <button
+                        key={item.id}
                         onClick={() => setActiveTab(item.id as any)}
                         className={`flex flex-col items-center justify-center w-full h-full ${activeTab === item.id ? 'text-yellow-500' : 'text-gray-400'}`}
                     >
@@ -205,7 +213,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-900 text-lg">My Prescriptions</h3>
-                    <button 
+                    <button
                         onClick={() => setShowConsent(true)}
                         className="bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 hover:bg-slate-800"
                     >
@@ -223,10 +231,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                         {prescriptions.map(p => (
                             <div key={p.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="flex justify-between items-start mb-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                        p.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${p.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
                                         p.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
-                                    }`}>{p.status}</span>
+                                        }`}>{p.status}</span>
                                     <span className="text-xs text-gray-400">{p.date}</span>
                                 </div>
                                 <div className="space-y-2">
@@ -247,9 +254,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     </div>
                 )}
             </div>
-            
+
             <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-            
+
             {showConsent && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
                     <div className="bg-white p-6 rounded-2xl max-w-sm w-full">
@@ -271,7 +278,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             <div className="sticky top-0 bg-slate-50 pt-2 pb-4 z-10">
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Find Medicines</h2>
                 <div className="relative">
-                    <input 
+                    <input
                         type="text"
                         placeholder="Search for drugs, symptoms..."
                         className="w-full bg-white border-none shadow-sm rounded-xl py-3 pl-12 pr-4 text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
@@ -280,16 +287,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     />
                     <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
-                
+
                 {/* Categories */}
                 <div className="flex gap-3 overflow-x-auto mt-4 pb-2 scrollbar-hide">
                     {categories.map(cat => (
-                        <button 
+                        <button
                             key={cat}
                             onClick={() => setFilterCategory(cat)}
-                            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
-                                filterCategory === cat ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-gray-100'
-                            }`}
+                            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === cat ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-gray-100'
+                                }`}
                         >
                             {cat}
                         </button>
@@ -300,7 +306,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             {/* Filters */}
             <div className="flex justify-between items-center text-sm px-1">
                 <span className="font-bold text-gray-500">{filteredInventory.length} Results</span>
-                <button 
+                <button
                     onClick={() => setOnlyInStock(!onlyInStock)}
                     className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${onlyInStock ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500'}`}
                 >
@@ -359,7 +365,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                         <p>No symptoms analyzed yet.</p>
                     </div>
                 )}
-                
+
                 {aiAnalysis && (
                     <div className="space-y-6">
                         {/* Summary Card */}
@@ -387,13 +393,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                             <ul className="space-y-2">
                                 {aiAnalysis.suggestedQuestions.map((q, i) => (
                                     <li key={i} className="flex gap-3 text-sm text-slate-700">
-                                        <span className="font-bold text-yellow-500">{i+1}.</span>
+                                        <span className="font-bold text-yellow-500">{i + 1}.</span>
                                         {q}
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                        
+
                         <p className="text-xs text-gray-400 text-center px-4">{aiAnalysis.disclaimer}</p>
                     </div>
                 )}
@@ -402,22 +408,22 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             {/* Input Area */}
             <div className="p-4 bg-white border-t border-gray-100">
                 <div className="relative">
-                    <textarea 
+                    <textarea
                         className="w-full bg-gray-50 rounded-xl p-4 pr-12 text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none resize-none shadow-inner"
                         rows={3}
                         placeholder="e.g. I have a throbbing headache and sensitivity to light for 2 days..."
                         value={symptomInput}
                         onChange={(e) => setSymptomInput(e.target.value)}
                     />
-                    <button 
+                    <button
                         onClick={handleSymptomCheck}
                         disabled={isThinking || !symptomInput.trim()}
                         className="absolute right-3 bottom-3 p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
                     >
                         {isThinking ? (
-                             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         ) : (
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         )}
                     </button>
                 </div>
@@ -428,7 +434,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
     const renderProfile = () => (
         <div className="space-y-6 pb-20 animate-in fade-in duration-300">
             <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-            
+
             {/* Privacy Card */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
@@ -441,8 +447,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                             <p className="font-medium text-slate-800">Anonymous Mode</p>
                             <p className="text-xs text-gray-500">Hide PII in searches & queries</p>
                         </div>
-                        <button 
-                            onClick={() => onUpdatePrivacy({...userPrivacy!, anonymousMode: !userPrivacy?.anonymousMode})}
+                        <button
+                            onClick={() => onUpdatePrivacy({ ...userPrivacy!, anonymousMode: !userPrivacy?.anonymousMode })}
                             className={`w-12 h-6 rounded-full relative transition-colors ${userPrivacy?.anonymousMode ? 'bg-green-500' : 'bg-gray-200'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userPrivacy?.anonymousMode ? 'left-7' : 'left-1'}`} />
@@ -453,8 +459,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                             <p className="font-medium text-slate-800">Share Browsing History</p>
                             <p className="text-xs text-gray-500">Help pharmacy improve stock</p>
                         </div>
-                        <button 
-                            onClick={() => onUpdatePrivacy({...userPrivacy!, shareBrowsing: !userPrivacy?.shareBrowsing})}
+                        <button
+                            onClick={() => onUpdatePrivacy({ ...userPrivacy!, shareBrowsing: !userPrivacy?.shareBrowsing })}
                             className={`w-12 h-6 rounded-full relative transition-colors ${userPrivacy?.shareBrowsing ? 'bg-green-500' : 'bg-gray-200'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userPrivacy?.shareBrowsing ? 'left-7' : 'left-1'}`} />
@@ -465,32 +471,54 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                             <p className="font-medium text-slate-800">Share Purchase History</p>
                             <p className="text-xs text-gray-500">For personalized deals</p>
                         </div>
-                        <button 
-                            onClick={() => onUpdatePrivacy({...userPrivacy!, sharePurchaseHistory: !userPrivacy?.sharePurchaseHistory})}
+                        <button
+                            onClick={() => onUpdatePrivacy({ ...userPrivacy!, sharePurchaseHistory: !userPrivacy?.sharePurchaseHistory })}
                             className={`w-12 h-6 rounded-full relative transition-colors ${userPrivacy?.sharePurchaseHistory ? 'bg-green-500' : 'bg-gray-200'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userPrivacy?.sharePurchaseHistory ? 'left-7' : 'left-1'}`} />
                         </button>
                     </div>
-                     <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                         <div>
                             <p className="font-medium text-slate-800">Personalized AI Advice</p>
                             <p className="text-xs text-gray-500">Allow AI to use your profile</p>
                         </div>
-                        <button 
-                            onClick={() => onUpdatePrivacy({...userPrivacy!, allowAI: !userPrivacy?.allowAI})}
+                        <button
+                            onClick={() => onUpdatePrivacy({ ...userPrivacy!, allowAI: !userPrivacy?.allowAI })}
                             className={`w-12 h-6 rounded-full relative transition-colors ${userPrivacy?.allowAI ? 'bg-green-500' : 'bg-gray-200'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userPrivacy?.allowAI ? 'left-7' : 'left-1'}`} />
                         </button>
                     </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-slate-800">Allow Camera Access</p>
+                            <p className="text-xs text-gray-500">For scanning prescriptions</p>
+                        </div>
+                        <button
+                            onClick={() => onUpdatePrivacy({ ...userPrivacy!, allowCamera: !userPrivacy?.allowCamera })}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${userPrivacy?.allowCamera ? 'bg-green-500' : 'bg-gray-200'}`}
+                        >
+                            <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userPrivacy?.allowCamera ? 'left-7' : 'left-1'}`} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-lg text-slate-900 mb-2">Account</h3>
-                <button className="w-full text-left py-3 text-red-600 font-medium text-sm">Log Out</button>
-             </div>
+                <button
+                    onClick={async () => {
+                        const { signOut } = await import('../services/supabase');
+                        const { error } = await signOut();
+                        if (error) console.error('Error signing out:', error);
+                        window.location.reload();
+                    }}
+                    className="w-full text-left py-3 text-red-600 font-medium text-sm hover:bg-red-50 rounded-lg transition-colors"
+                >
+                    Log Out
+                </button>
+            </div>
         </div>
     );
 
@@ -501,7 +529,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             {activeTab === 'SHOP' && renderShop()}
             {activeTab === 'ASSISTANT' && renderAssistant()}
             {activeTab === 'PROFILE' && renderProfile()}
-            
+
             <BottomNav />
 
             {/* Product Detail Modal */}
@@ -510,19 +538,19 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl h-[90vh] flex flex-col animate-in slide-in-from-bottom-10">
                         {/* Header Image */}
                         <div className="relative h-64 bg-gray-100 flex-shrink-0">
-                             {selectedProduct.image_front ? (
+                            {selectedProduct.image_front ? (
                                 <img src={selectedProduct.image_front} alt="" className="w-full h-full object-cover" />
-                             ) : (
+                            ) : (
                                 <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
-                             )}
-                             <button 
+                            )}
+                            <button
                                 onClick={() => setShowProductModal(false)}
                                 className="absolute top-4 right-4 bg-white/80 p-2 rounded-full shadow-sm hover:bg-white"
-                             >
+                            >
                                 <svg className="w-5 h-5 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                             </button>
+                            </button>
                         </div>
-                        
+
                         {/* Content */}
                         <div className="flex-grow overflow-y-auto p-6 space-y-6">
                             <div>

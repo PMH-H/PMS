@@ -8,7 +8,7 @@
 import { supabase } from './supabase';
 import type {
     Drug, DrugBatch, Sale, SaleItem, InventoryAdjustment,
-    AuditLog, SearchLog, User, Notification
+    AuditLog, SearchLog, User, Notification, Prescription
 } from '../types';
 
 // =====================================================
@@ -101,11 +101,11 @@ export const addBatch = async (batch: Partial<DrugBatch> & { facility_id: string
 
     // Also record stock movement
     await recordStockMovement({
-        item_id: batch.item_id!,
+        item_id: batch.drug_id!,
         batch_id: data.id,
         facility_id: batch.facility_id,
         movement_type: 'IN',
-        quantity: batch.received_quantity!,
+        quantity: batch.received_units!,
         unit_price: batch.cost_per_unit,
         reason: `Initial batch receipt: ${batch.batch_no}`
     });
@@ -395,6 +395,25 @@ export const approveCycleCount = async (cycleCountId: string) => {
 };
 
 // =====================================================
+// AUDIT LOGS
+// =====================================================
+
+export const createAuditLog = async (log: Partial<AuditLog>) => {
+    const { data, error } = await supabase
+        .from('audit_log')
+        .insert([log])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating audit log:', error);
+        // Don't throw, just log error to avoid blocking main flow
+        return null;
+    }
+    return data;
+};
+
+// =====================================================
 // PURCHASE ORDERS
 // =====================================================
 
@@ -484,6 +503,29 @@ export const getStockAlerts = async (facilityId: string, unreadOnly: boolean = f
     return data;
 };
 
+export const createAlert = async (alert: {
+    facility_id: string;
+    type: string;
+    message: string;
+    item_id?: string;
+}) => {
+    const { data, error } = await supabase
+        .from('alerts')
+        .insert([{
+            ...alert,
+            is_read: false,
+            created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating alert:', error);
+        return null;
+    }
+    return data;
+};
+
 export const markAlertAsRead = async (alertId: string) => {
     const { error } = await supabase
         .from('alerts')
@@ -491,6 +533,60 @@ export const markAlertAsRead = async (alertId: string) => {
         .eq('id', alertId);
 
     if (error) throw error;
+};
+
+// =====================================================
+// PRESCRIPTIONS
+// =====================================================
+
+export const getPrescriptions = async (userId?: string) => {
+    let query = supabase
+        .from('prescriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (userId) {
+        query = query.eq('patient_id', userId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+};
+
+export const createPrescription = async (prescription: Partial<Prescription> & { patient_id: string }) => {
+    // Map frontend Prescription type to DB schema
+    // DB: id, patient_id, status, image_url, medications (jsonb), interactions (jsonb)
+
+    const dbPayload = {
+        id: prescription.id,
+        patient_id: prescription.patient_id,
+        status: prescription.status,
+        image_url: prescription.imageUrl, // Note: camelCase to snake_case mapping if needed, but DB has image_url
+        medications: prescription.medications,
+        interactions: prescription.interactions
+    };
+
+    const { data, error } = await supabase
+        .from('prescriptions')
+        .insert([dbPayload])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const updatePrescriptionStatus = async (id: string, status: string) => {
+    const { data, error } = await supabase
+        .from('prescriptions')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 };
 
 // =====================================================

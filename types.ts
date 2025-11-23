@@ -1,10 +1,12 @@
 
 export enum UserRole {
-  PATIENT = 'PATIENT',
+  CUSTOMER = 'CUSTOMER',
   PHARMACIST = 'PHARMACIST',
   ADMIN = 'ADMIN',
-  SUPER_ADMIN = 'SUPER_ADMIN',
-  SUPER_ADMIN_DEV = 'SUPER_ADMIN_DEV'
+  SUPER_ADMIN_BMS = 'SUPER_ADMIN_BMS',
+  SUPER_ADMIN_DEV = 'SUPER_ADMIN_DEV',
+  WORKER = 'WORKER',
+  CASHIER = 'CASHIER'
 }
 
 export enum InteractionLevel {
@@ -52,6 +54,7 @@ export interface PrivacySettings {
   sharePurchaseHistory: boolean;
   allowAI: boolean;
   anonymousMode: boolean;
+  allowCamera?: boolean;
 }
 
 // --- NEW DISPENSARY MODELS ---
@@ -142,51 +145,51 @@ export interface SearchLog {
 // --- BMS / SUPER ADMIN MODELS ---
 
 export interface PharmacyNode {
-    id: string;
-    name: string;
-    region: string;
-    complianceScore: number; // 0-100
-    dataSharingEnabled: boolean;
-    lastAuditDate: string;
-    status: 'ACTIVE' | 'FLAGGED' | 'OFFLINE';
+  id: string;
+  name: string;
+  region: string;
+  complianceScore: number; // 0-100
+  dataSharingEnabled: boolean;
+  lastAuditDate: string;
+  status: 'ACTIVE' | 'FLAGGED' | 'OFFLINE';
 }
 
 export interface MarketTrend {
-    id: string;
-    category: string;
-    region: string;
-    demandIndex: number; // 0-100
-    supplyIndex: number; // 0-100
-    avgPrice: number;
-    month: string;
+  id: string;
+  category: string;
+  region: string;
+  demandIndex: number; // 0-100
+  supplyIndex: number; // 0-100
+  avgPrice: number;
+  month: string;
 }
 
 export interface Prediction {
-    id: string;
-    type: 'DISEASE' | 'DRUG_DEMAND' | 'PRICE_SPIKE';
-    title: string;
-    probability: number; // 0-100
-    description: string;
-    impactLevel: 'HIGH' | 'MEDIUM' | 'LOW';
-    targetDate: string;
+  id: string;
+  type: 'DISEASE' | 'DRUG_DEMAND' | 'PRICE_SPIKE';
+  title: string;
+  probability: number; // 0-100
+  description: string;
+  impactLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  targetDate: string;
 }
 
 // --- DEV / ARCHITECT MODELS ---
 
 export interface MetricConfig {
-    id: string;
-    category: 'SALES' | 'INVENTORY' | 'SYSTEM' | 'DEV';
-    label: string;
-    description: string;
-    isEnabled: boolean;
-    widgetType: 'CHART' | 'CARD' | 'LIST';
+  id: string;
+  category: 'SALES' | 'INVENTORY' | 'SYSTEM' | 'DEV';
+  label: string;
+  description: string;
+  isEnabled: boolean;
+  widgetType: 'CHART' | 'CARD' | 'LIST';
 }
 
 export interface SystemHealth {
-    service: string;
-    status: 'OK' | 'WARN' | 'CRIT';
-    latency: number;
-    uptime: number;
+  service: string;
+  status: 'OK' | 'WARN' | 'CRIT';
+  latency: number;
+  uptime: number;
 }
 
 // --- LEGACY/COMPATIBILITY TYPES ---

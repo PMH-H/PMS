@@ -9,10 +9,10 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
-      case UserRole.PATIENT: return 'Patient Portal';
+      case UserRole.CUSTOMER: return 'Patient Portal';
       case UserRole.PHARMACIST: return 'Pharmacist Dashboard';
       case UserRole.ADMIN: return 'Admin Console';
-      case UserRole.SUPER_ADMIN: return 'BMS Command Center';
+      case UserRole.SUPER_ADMIN_BMS: return 'BMS Command Center';
       case UserRole.SUPER_ADMIN_DEV: return 'System Architect Console';
       default: return 'App';
     }
@@ -37,7 +37,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
-                <span className={`px-3 py-2 rounded-md text-sm font-medium ${currentUser.role === UserRole.SUPER_ADMIN ? 'bg-purple-900 text-purple-100 border border-purple-500' :
+                <span className={`px-3 py-2 rounded-md text-sm font-medium ${currentUser.role === UserRole.SUPER_ADMIN_BMS ? 'bg-purple-900 text-purple-100 border border-purple-500' :
                   currentUser.role === UserRole.SUPER_ADMIN_DEV ? 'bg-slate-900 text-slate-100 border border-slate-500' : 'bg-indigo-800'
                   }`}>
                   {getRoleLabel(currentUser.role)}

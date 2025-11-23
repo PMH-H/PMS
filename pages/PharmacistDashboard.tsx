@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Prescription, InventoryItem, PrescriptionStatus } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
-import { optimizeInventoryLevels } from '../services/geminiService';
+import { optimizeInventoryLevels, analyzePrescriptionImage, checkDrugInteractions } from '../services/geminiService';
 
 interface PharmacistDashboardProps {
     prescriptions: Prescription[];
@@ -11,6 +11,7 @@ interface PharmacistDashboardProps {
     onUpdateInventory: (id: string, updates: Partial<InventoryItem>) => void;
     onDeleteInventory: (id: string) => void;
     onReconcileInventory: (id: string, physicalCount: number) => void;
+    onAddPrescription: (p: Prescription) => void;
 }
 
 // Helper for status badges
@@ -22,20 +23,25 @@ const getStockStatus = (item: InventoryItem) => {
     return { label: 'GOOD', color: 'bg-green-100 text-green-800 border-green-200' };
 };
 
-const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({ 
-    prescriptions, 
-    inventory, 
+const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
+    prescriptions,
+    inventory,
     onUpdateStatus,
     onAddInventory,
     onUpdateInventory,
     onDeleteInventory,
-    onReconcileInventory
+    onReconcileInventory,
+    onAddPrescription
 }) => {
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'COUNTING'>('OVERVIEW');
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
-    
+
+    // Prescription Upload State
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // Cyclic Counting State
     const [countingItem, setCountingItem] = useState<string | null>(null);
     const [physicalCountInput, setPhysicalCountInput] = useState<number>(0);
@@ -52,9 +58,9 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         costPerUnit: 0.00
     });
 
-    const pendingPrescriptions = useMemo(() => 
-        prescriptions.filter(p => p.status === PrescriptionStatus.PENDING), 
-    [prescriptions]);
+    const pendingPrescriptions = useMemo(() =>
+        prescriptions.filter(p => p.status === PrescriptionStatus.PENDING),
+        [prescriptions]);
 
     // Analytics Data
     const abcData = useMemo(() => {
@@ -78,7 +84,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         setEditingItem(null);
         const nextYear = new Date();
         nextYear.setFullYear(nextYear.getFullYear() + 1);
-        setFormData({ 
+        setFormData({
             name: '', currentStock: 0, minLevel: 50, maxLevel: 200, unit: 'units',
             expirationDate: nextYear.toISOString().split('T')[0], category: 'C', leadTime: 3, costPerUnit: 0
         });
@@ -111,11 +117,56 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         }
     };
 
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = async () => {
+                const base64 = (reader.result as string).split(',')[1];
+                const meds = await analyzePrescriptionImage(base64);
+                if (meds.length > 0) {
+                    const interactions = await checkDrugInteractions(meds);
+                    const newRx: Prescription = {
+                        id: crypto.randomUUID(),
+                        patientName: "Walk-in Patient",
+                        date: new Date().toISOString().split('T')[0],
+                        medications: meds,
+                        status: PrescriptionStatus.PENDING,
+                        imageUrl: reader.result as string,
+                        interactions
+                    };
+                    onAddPrescription(newRx);
+                    alert("Prescription uploaded successfully!");
+                } else {
+                    alert("Could not detect medications. Try a clearer photo.");
+                }
+                setIsUploading(false);
+            };
+        } catch (e) {
+            setIsUploading(false);
+            alert("Error uploading image");
+        }
+    };
+
     // --- Render Functions ---
 
     const renderOverview = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
-             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="flex justify-end mb-4">
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    {isUploading ? 'Uploading...' : 'Upload Prescription'}
+                </button>
+                <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-sm font-medium text-gray-500">Pending Rx</p>
                     <p className="text-3xl font-bold text-indigo-600 mt-2">{pendingPrescriptions.length}</p>
@@ -141,7 +192,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-gray-900">ABC Analysis (Inventory Value)</h3>
-                        <button 
+                        <button
                             onClick={handleRunAIOptimization}
                             disabled={isOptimizing}
                             className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100 flex items-center gap-1"
@@ -150,7 +201,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                         </button>
                     </div>
                     <div className="h-64">
-                         <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie data={abcData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
                                     {abcData.map((entry, index) => (
@@ -219,9 +270,8 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             return (
                                 <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
                                     <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-white text-xs ${
-                                            item.category === 'A' ? 'bg-red-600' : item.category === 'B' ? 'bg-yellow-500' : 'bg-gray-400'
-                                        }`}>
+                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-white text-xs ${item.category === 'A' ? 'bg-red-600' : item.category === 'B' ? 'bg-yellow-500' : 'bg-gray-400'
+                                            }`}>
                                             {item.category}
                                         </span>
                                     </td>
@@ -255,7 +305,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
     const renderProcurement = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
-             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                 <div className="flex">
                     <div className="flex-shrink-0">
                         <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -308,7 +358,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                     </tr>
                                 )
                             })}
-                             {procurementList.length === 0 && (
+                            {procurementList.length === 0 && (
                                 <tr><td colSpan={7} className="text-center py-8 text-gray-400">No items need reordering.</td></tr>
                             )}
                         </tbody>
@@ -331,13 +381,13 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b bg-gray-50 font-semibold text-gray-800">Count Queue (Due Items)</div>
                     <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                        {inventory.sort((a,b) => (a.lastCountDate || '') > (b.lastCountDate || '') ? 1 : -1).map(item => (
+                        {inventory.sort((a, b) => (a.lastCountDate || '') > (b.lastCountDate || '') ? 1 : -1).map(item => (
                             <li key={item.id} className="p-4 hover:bg-gray-50 flex justify-between items-center transition-colors">
                                 <div>
                                     <div className="font-medium text-gray-900">{item.name}</div>
                                     <div className="text-xs text-gray-500">Last Counted: {item.lastCountDate || 'Never'} • Class {item.category}</div>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => { setCountingItem(item.id); setPhysicalCountInput(item.currentStock); }}
                                     className="border border-indigo-200 text-indigo-700 px-3 py-1 rounded text-sm hover:bg-indigo-50"
                                 >
@@ -364,8 +414,8 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Physical Count Qty</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     className="w-full text-2xl font-bold p-3 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none"
                                     value={physicalCountInput}
                                     onChange={(e) => setPhysicalCountInput(parseInt(e.target.value) || 0)}
@@ -373,13 +423,13 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             </div>
 
                             <div className="pt-4">
-                                <button 
+                                <button
                                     onClick={handleReconcileSubmit}
                                     className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-indigo-700 shadow-md transition-colors"
                                 >
                                     Confirm Reconciliation
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setCountingItem(null)}
                                     className="w-full mt-2 text-gray-500 py-2 hover:text-gray-700"
                                 >
@@ -400,18 +450,17 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
     return (
         <div className="space-y-6">
-            
+
             {/* Header / Tabs */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex overflow-x-auto">
                 {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'COUNTING'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all ${
-                            activeTab === tab 
-                            ? 'bg-indigo-100 text-indigo-700 shadow-sm' 
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
+                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === tab
+                                ? 'bg-indigo-100 text-indigo-700 shadow-sm'
+                                : 'text-gray-500 hover:bg-gray-50'
+                            }`}
                     >
                         {tab === 'STOCK' ? 'STOCK CONTROL' : tab}
                     </button>
@@ -438,21 +487,21 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Medication Name</label>
-                                    <input 
+                                    <input
                                         required
-                                        type="text" 
+                                        type="text"
                                         value={formData.name}
-                                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="e.g. Amoxicillin 500mg"
                                     />
                                 </div>
-                                
+
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">ABC Category</label>
-                                    <select 
+                                    <select
                                         value={formData.category}
-                                        onChange={(e) => setFormData({...formData, category: e.target.value as any})}
+                                        onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     >
                                         <option value="A">Class A (High Value)</option>
@@ -463,10 +512,10 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Cost Per Unit (ZMW)</label>
-                                    <input 
+                                    <input
                                         type="number" step="0.01" min="0"
                                         value={formData.costPerUnit}
-                                        onChange={(e) => setFormData({...formData, costPerUnit: parseFloat(e.target.value)})}
+                                        onChange={(e) => setFormData({ ...formData, costPerUnit: parseFloat(e.target.value) })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                 </div>
@@ -475,28 +524,28 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                     <div className="col-span-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Stock Parameters</div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Current</label>
-                                        <input 
+                                        <input
                                             required type="number" min="0"
                                             value={formData.currentStock}
-                                            onChange={(e) => setFormData({...formData, currentStock: parseInt(e.target.value)})}
+                                            onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) })}
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1 text-red-600">Min (Reorder)</label>
-                                        <input 
+                                        <input
                                             required type="number" min="0"
                                             value={formData.minLevel}
-                                            onChange={(e) => setFormData({...formData, minLevel: parseInt(e.target.value)})}
+                                            onChange={(e) => setFormData({ ...formData, minLevel: parseInt(e.target.value) })}
                                             className="w-full border border-red-200 bg-red-50 rounded-lg px-3 py-2"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Max Level</label>
-                                        <input 
+                                        <input
                                             required type="number" min="0"
                                             value={formData.maxLevel}
-                                            onChange={(e) => setFormData({...formData, maxLevel: parseInt(e.target.value)})}
+                                            onChange={(e) => setFormData({ ...formData, maxLevel: parseInt(e.target.value) })}
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                                         />
                                     </div>
@@ -504,19 +553,19 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Lead Time (Days)</label>
-                                    <input 
+                                    <input
                                         type="number" min="0"
                                         value={formData.leadTime}
-                                        onChange={(e) => setFormData({...formData, leadTime: parseInt(e.target.value)})}
+                                        onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Expiration Date</label>
-                                    <input 
-                                        required type="date" 
+                                    <input
+                                        required type="date"
                                         value={formData.expirationDate}
-                                        onChange={(e) => setFormData({...formData, expirationDate: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none"
                                     />
                                 </div>
