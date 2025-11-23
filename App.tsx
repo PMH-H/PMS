@@ -2,50 +2,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import ChatAssistant from './components/ChatAssistant';
+import Login from './components/Login';
 import PatientDashboard from './pages/PatientDashboard';
 import PharmacistDashboard from './pages/PharmacistDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import DispensaryDashboard from './pages/DispensaryDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import DevDashboard from './pages/DevDashboard';
-import { checkSupabaseConnection } from './services/supabase';
-import { 
+import { checkSupabaseConnection, supabase, getCurrentUser } from './services/supabase';
+import {
   UserRole, User, Prescription, PrescriptionStatus, Notification, AILog,
   Drug, DrugBatch, Sale, InventoryAdjustment, AuditLog, InventoryItem, SaleItem, SearchLog
 } from './types';
 
-// Mock Users
-const MOCK_USERS: User[] = [
-  { 
-    id: 'u1', 
-    name: 'Sarah Customer', 
-    role: UserRole.PATIENT,
-    privacySettings: {
-      shareBrowsing: true,
-      sharePurchaseHistory: true,
-      allowAI: true,
-      anonymousMode: false
-    }
-  },
-  { id: 'u2', name: 'Paul Pharmacist', role: UserRole.PHARMACIST },
-  { id: 'u3', name: 'Adam Admin', role: UserRole.ADMIN },
-  { id: 'u5', name: 'Dr. Susan Super (BMS)', role: UserRole.SUPER_ADMIN },
-  { id: 'u6', name: 'Devin Architect', role: UserRole.SUPER_ADMIN_DEV },
-];
-
-// Initial Data Seeding
+// Initial Data Seeding (Keep for now as fallback/demo data)
 const INITIAL_DRUGS: Drug[] = [
-  { 
-    id: 'd1', 
-    sku: 'AMOX-500', 
+  {
+    id: 'd1',
+    sku: 'AMOX-500',
     name: 'Amoxicillin 500mg',
     generic_name: 'Amoxicillin',
-    barcode: '111000', 
+    barcode: '111000',
     default_unit: 'capsules',
     dosage_form: 'Capsule',
-    category: 'B', 
-    min_level: 200, 
-    max_level: 1000, 
+    category: 'B',
+    min_level: 200,
+    max_level: 1000,
     created_at: new Date().toISOString(),
     active_ingredients: ['Amoxicillin Trihydrate'],
     common_uses: ['Bacterial Infections', 'Dental Abscess', 'Respiratory Tract Infection'],
@@ -53,17 +35,17 @@ const INITIAL_DRUGS: Drug[] = [
     usage_warning: 'Complete the full course even if you feel better. Do not take if allergic to Penicillin.',
     price_estimate: 45.00
   },
-  { 
-    id: 'd2', 
-    sku: 'LIS-10', 
-    name: 'Lisinopril 10mg', 
+  {
+    id: 'd2',
+    sku: 'LIS-10',
+    name: 'Lisinopril 10mg',
     generic_name: 'Lisinopril',
-    barcode: '222000', 
+    barcode: '222000',
     default_unit: 'tablets',
     dosage_form: 'Tablet',
-    category: 'A', 
-    min_level: 150, 
-    max_level: 500, 
+    category: 'A',
+    min_level: 150,
+    max_level: 500,
     created_at: new Date().toISOString(),
     active_ingredients: ['Lisinopril'],
     common_uses: ['Hypertension (High Blood Pressure)', 'Heart Failure'],
@@ -71,17 +53,17 @@ const INITIAL_DRUGS: Drug[] = [
     usage_warning: 'May cause dizziness. Do not use if pregnant.',
     price_estimate: 120.50
   },
-  { 
-    id: 'd3', 
-    sku: 'ATOR-20', 
+  {
+    id: 'd3',
+    sku: 'ATOR-20',
     name: 'Atorvastatin 20mg',
     generic_name: 'Atorvastatin',
-    barcode: '333000', 
+    barcode: '333000',
     default_unit: 'tablets',
     dosage_form: 'Tablet',
-    category: 'C', 
-    min_level: 300, 
-    max_level: 1500, 
+    category: 'C',
+    min_level: 300,
+    max_level: 1500,
     created_at: new Date().toISOString(),
     active_ingredients: ['Atorvastatin Calcium'],
     common_uses: ['High Cholesterol', 'Heart Disease Prevention'],
@@ -106,8 +88,9 @@ const INITIAL_BATCHES: DrugBatch[] = [
 ];
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USERS[0]); 
-  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
   // -- Legacy State (Prescriptions) --
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -127,12 +110,12 @@ const App: React.FC = () => {
     return drugs.map(drug => {
       const drugBatches = batches.filter(b => b.drug_id === drug.id);
       const totalStock = drugBatches.reduce((sum, b) => sum + b.current_units, 0);
-      
+
       // Find earliest expiry
-      const earliestExpiry = drugBatches.length > 0 
-        ? drugBatches.sort((a,b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime())[0].expiry_date
+      const earliestExpiry = drugBatches.length > 0
+        ? drugBatches.sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime())[0].expiry_date
         : getFutureDate(365);
-      
+
       // Average cost (weighted)
       const totalValue = drugBatches.reduce((sum, b) => sum + (b.current_units * b.cost_per_unit), 0);
       const avgCost = totalStock > 0 ? totalValue / totalStock : 0;
@@ -156,6 +139,7 @@ const App: React.FC = () => {
   // -- Helpers --
 
   const addAuditLog = (resourceType: AuditLog['resource_type'], action: AuditLog['action'], resourceId: string, payload: any) => {
+    if (!currentUser) return;
     const newLog: AuditLog = {
       id: crypto.randomUUID(),
       resource_type: resourceType,
@@ -182,10 +166,10 @@ const App: React.FC = () => {
 
   const handleLogSearch = (term: string, category: 'PRODUCT' | 'SYMPTOM') => {
     setSearchLogs(prev => [...prev, {
-        id: crypto.randomUUID(),
-        term,
-        category,
-        timestamp: new Date().toISOString()
+      id: crypto.randomUUID(),
+      term,
+      category,
+      timestamp: new Date().toISOString()
     }]);
   };
 
@@ -199,10 +183,10 @@ const App: React.FC = () => {
   const handleAddBatch = (batch: DrugBatch) => {
     setBatches(prev => [...prev, batch]);
     addAuditLog('BATCH', 'CREATE', batch.id, batch);
-    
+
     // Check notifications
     const drug = drugs.find(d => d.id === batch.drug_id);
-    if(drug) {
+    if (drug) {
       setNotifications(prev => [...prev, {
         id: crypto.randomUUID(),
         message: `New Batch Added: ${drug.name} (${batch.batch_no})`,
@@ -215,6 +199,7 @@ const App: React.FC = () => {
 
   // CORE LOGIC: Process Sale with FEFO
   const handleProcessSale = (items: SaleItem[], customerInfo?: string) => {
+    if (!currentUser) return;
     const newSaleId = crypto.randomUUID();
     let updatedBatches = [...batches];
     let insufficientStock = false;
@@ -222,7 +207,7 @@ const App: React.FC = () => {
     // Simulate Transaction
     items.forEach(item => {
       let remainingUnitsToSell = item.units;
-      
+
       // If batch specified, use it
       if (item.batch_id) {
         const batchIndex = updatedBatches.findIndex(b => b.id === item.batch_id);
@@ -249,7 +234,7 @@ const App: React.FC = () => {
         for (const batch of drugBatches) {
           if (remainingUnitsToSell <= 0) break;
           const take = Math.min(batch.current_units, remainingUnitsToSell);
-          
+
           updatedBatches[batch.originalIdx] = {
             ...updatedBatches[batch.originalIdx],
             current_units: updatedBatches[batch.originalIdx].current_units - take
@@ -266,7 +251,7 @@ const App: React.FC = () => {
 
     // Commit Transaction
     setBatches(updatedBatches);
-    
+
     const sale: Sale = {
       id: newSaleId,
       items,
@@ -282,13 +267,14 @@ const App: React.FC = () => {
 
   // CORE LOGIC: Reconciliation
   const handleReconcile = (adjustmentsInput: InventoryAdjustment[]) => {
+    if (!currentUser) return;
     if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.PHARMACIST && currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUPER_ADMIN_DEV) {
       alert("Unauthorized");
       return;
     }
 
     let updatedBatches = [...batches];
-    
+
     adjustmentsInput.forEach(adj => {
       const batchIdx = updatedBatches.findIndex(b => b.id === adj.drug_batch_id);
       if (batchIdx !== -1) {
@@ -301,10 +287,10 @@ const App: React.FC = () => {
 
     setBatches(updatedBatches);
     setAdjustments(prev => [...prev, ...adjustmentsInput]);
-    
+
     // Log one entry per adjustment
     adjustmentsInput.forEach(adj => {
-        addAuditLog('ADJUSTMENT', 'RECONCILE', adj.drug_batch_id, adj);
+      addAuditLog('ADJUSTMENT', 'RECONCILE', adj.drug_batch_id, adj);
     });
   };
 
@@ -315,45 +301,115 @@ const App: React.FC = () => {
 
   // Initial Seed for Prescriptions
   useEffect(() => {
-      if (prescriptions.length === 0) {
-        setPrescriptions([{
-            id: 'rx-seed-1', patientName: 'John Doe', date: '2023-10-25', status: PrescriptionStatus.PICKED_UP,
-            medications: [{ id: 'm1', name: 'Ibuprofen', dosage: '400mg', frequency: 'As needed' }]
-        }]);
-      }
+    if (prescriptions.length === 0) {
+      setPrescriptions([{
+        id: 'rx-seed-1', patientName: 'John Doe', date: '2023-10-25', status: PrescriptionStatus.PICKED_UP,
+        medications: [{ id: 'm1', name: 'Ibuprofen', dosage: '400mg', frequency: 'As needed' }]
+      }]);
+    }
   }, []);
 
-  // Supabase Connection Check
+  // Supabase Auth & Connection Check
   useEffect(() => {
-      const verifyConnection = async () => {
-          const isConnected = await checkSupabaseConnection();
-          if(isConnected) {
-              console.log("Supabase Connected Successfully");
-          } else {
-              console.log("Running in Mock Mode (Supabase disconnected)");
-          }
-      };
-      verifyConnection();
+    const initializeApp = async () => {
+      // 1. Check Connection
+      const isConnected = await checkSupabaseConnection();
+      if (isConnected) {
+        console.log("Supabase Connected Successfully");
+      } else {
+        console.log("Running in Mock Mode (Supabase disconnected)");
+      }
+
+      // 2. Check Auth Session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchUserProfile(session.user.id, session.user.email || '');
+      } else {
+        setLoading(false);
+      }
+
+      // 3. Subscribe to Auth Changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await fetchUserProfile(session.user.id, session.user.email || '');
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+          setLoading(false);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    };
+
+    initializeApp();
   }, []);
+
+  const fetchUserProfile = async (userId: string, email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        // Fallback or handle error (maybe user has no profile yet)
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        setCurrentUser({
+          id: data.id,
+          name: data.full_name || email.split('@')[0],
+          role: data.role as UserRole,
+          // Default privacy settings for now
+          privacySettings: {
+            shareBrowsing: true,
+            sharePurchaseHistory: true,
+            allowAI: true,
+            anonymousMode: false
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching profile:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700"></div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Login onLoginSuccess={() => { }} />; // onLoginSuccess handled by auth state listener
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
-      <Navbar currentUser={currentUser} onSwitchRole={(r) => setCurrentUser(MOCK_USERS.find(u => u.role === r) || MOCK_USERS[0])} />
+      <Navbar currentUser={currentUser} />
 
       <main className="flex-grow w-full mx-auto">
-        
+
         {currentUser.role === UserRole.PATIENT && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <PatientDashboard 
-              prescriptions={prescriptions} 
-              inventory={drugs} 
+            <PatientDashboard
+              prescriptions={prescriptions}
+              inventory={drugs}
               inventoryStock={batches}
               onAddPrescription={p => setPrescriptions(prev => [p, ...prev])}
               logAIAction={addAILog}
               notifications={notifications}
               onMarkNotificationAsRead={id => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
               userPrivacy={currentUser.privacySettings}
-              onUpdatePrivacy={(newSettings) => setCurrentUser(prev => ({...prev, privacySettings: newSettings}))}
+              onUpdatePrivacy={(newSettings) => setCurrentUser(prev => prev ? ({ ...prev, privacySettings: newSettings }) : null)}
               onLogSearch={handleLogSearch}
             />
           </div>
@@ -364,8 +420,8 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold">Pharmacist Overview</h1>
             </div>
-            
-            <PharmacistDashboard 
+
+            <PharmacistDashboard
               prescriptions={prescriptions}
               inventory={inventorySummary}
               onUpdateStatus={handleLegacyUpdateStatus}
@@ -376,40 +432,40 @@ const App: React.FC = () => {
             />
 
             <hr className="border-gray-300" />
-            
-            <DispensaryDashboard 
-               currentUser={currentUser}
-               drugs={drugs}
-               batches={batches}
-               sales={sales}
-               onProcessSale={handleProcessSale}
-               onCreateDrug={handleCreateDrug}
-               onAddBatch={handleAddBatch}
-               onReconcile={handleReconcile}
+
+            <DispensaryDashboard
+              currentUser={currentUser}
+              drugs={drugs}
+              batches={batches}
+              sales={sales}
+              onProcessSale={handleProcessSale}
+              onCreateDrug={handleCreateDrug}
+              onAddBatch={handleAddBatch}
+              onReconcile={handleReconcile}
             />
           </div>
         )}
 
         {currentUser.role === UserRole.ADMIN && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-             <DispensaryDashboard 
-               currentUser={currentUser}
-               drugs={drugs}
-               batches={batches}
-               sales={sales}
-               onProcessSale={handleProcessSale}
-               onCreateDrug={handleCreateDrug}
-               onAddBatch={handleAddBatch}
-               onReconcile={handleReconcile}
+            <DispensaryDashboard
+              currentUser={currentUser}
+              drugs={drugs}
+              batches={batches}
+              sales={sales}
+              onProcessSale={handleProcessSale}
+              onCreateDrug={handleCreateDrug}
+              onAddBatch={handleAddBatch}
+              onReconcile={handleReconcile}
             />
-            <AdminDashboard 
-                logs={aiLogs} 
-                users={MOCK_USERS} 
-                sales={sales}
-                auditLogs={auditLogs}
-                inventory={drugs}
-                batches={batches}
-                searchLogs={searchLogs}
+            <AdminDashboard
+              logs={aiLogs}
+              users={[]} // TODO: Fetch real users
+              sales={sales}
+              auditLogs={auditLogs}
+              inventory={drugs}
+              batches={batches}
+              searchLogs={searchLogs}
             />
           </div>
         )}

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { MetricConfig, SystemHealth, User } from '../types';
-import { generateDevLogs } from '../services/geminiService';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { MetricConfig, SystemHealth } from '../types';
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { supabase, checkSupabaseConnection } from '../services/supabase';
 
-// --- MOCK CONSTANTS ---
+// --- MOCK CONSTANTS (Kept for UI structure) ---
 
 const INITIAL_METRICS: MetricConfig[] = [
     // SALES
@@ -23,32 +23,85 @@ const INITIAL_METRICS: MetricConfig[] = [
     { id: 'm10', category: 'DEV', label: 'Active Webhooks', description: 'Third-party integrations status', isEnabled: false, widgetType: 'LIST' },
 ];
 
-const MOCK_SYSTEM_HEALTH: SystemHealth[] = [
-    { service: 'API Gateway', status: 'OK', latency: 45, uptime: 99.99 },
-    { service: 'PostgreSQL DB', status: 'OK', latency: 12, uptime: 99.95 },
-    { service: 'Gemini AI Integration', status: 'WARN', latency: 450, uptime: 98.50 },
-    { service: 'Redis Cache', status: 'OK', latency: 2, uptime: 99.99 },
-    { service: 'Notification Service', status: 'CRIT', latency: 0, uptime: 0 },
-];
-
-const MOCK_USERS_LIST = [
-    { id: 'u1', name: 'Sarah Customer', role: 'PATIENT', status: 'Active' },
-    { id: 'u2', name: 'Paul Pharmacist', role: 'PHARMACIST', status: 'Active' },
-    { id: 'u3', name: 'Adam Admin', role: 'ADMIN', status: 'Active' },
-    { id: 'u5', name: 'Dr. Susan Super', role: 'SUPER_ADMIN', status: 'Active' },
-];
-
 const DevDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'MONITOR' | 'BUILDER' | 'USERS' | 'DEV_TOOLS'>('MONITOR');
     const [metrics, setMetrics] = useState<MetricConfig[]>(INITIAL_METRICS);
     const [logs, setLogs] = useState<string[]>([]);
+    const [systemHealth, setSystemHealth] = useState<SystemHealth[]>([
+        { service: 'API Gateway', status: 'OK', latency: 45, uptime: 99.99 },
+        { service: 'PostgreSQL DB', status: 'WARN', latency: 0, uptime: 0 }, // Initial state
+        { service: 'Gemini AI Integration', status: 'OK', latency: 450, uptime: 98.50 },
+        { service: 'Redis Cache', status: 'OK', latency: 2, uptime: 99.99 },
+        { service: 'Notification Service', status: 'OK', latency: 12, uptime: 99.9 },
+    ]);
+    const [users, setUsers] = useState<any[]>([]);
 
+    // Fetch Real Logs & Subscribe
     useEffect(() => {
-        const interval = setInterval(() => {
-            const newLogs = generateDevLogs();
-            setLogs(prev => [...newLogs, ...prev].slice(0, 50));
-        }, 3000);
+        const fetchLogs = async () => {
+            const { data } = await supabase
+                .from('audit_log')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (data) {
+                setLogs(data.map(l => `[${new Date(l.created_at).toLocaleTimeString()}] ${l.action} on ${l.resource_type} (${l.resource_id}) by ${l.performed_by}`));
+            }
+        };
+
+        fetchLogs();
+
+        const channel = supabase
+            .channel('audit_log_changes')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'audit_log' },
+                (payload) => {
+                    const l = payload.new;
+                    const logMsg = `[${new Date(l.created_at).toLocaleTimeString()}] ${l.action} on ${l.resource_type} (${l.resource_id}) by ${l.performed_by}`;
+                    setLogs(prev => [logMsg, ...prev].slice(0, 100));
+                }
+            )
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, []);
+
+    // Check System Health
+    useEffect(() => {
+        const checkHealth = async () => {
+            const start = performance.now();
+            const isConnected = await checkSupabaseConnection();
+            const latency = Math.round(performance.now() - start);
+
+            setSystemHealth(prev => prev.map(s => {
+                if (s.service === 'PostgreSQL DB') {
+                    return {
+                        ...s,
+                        status: isConnected ? 'OK' : 'CRIT',
+                        latency: isConnected ? latency : 0,
+                        uptime: isConnected ? 100 : 0
+                    };
+                }
+                return s;
+            }));
+        };
+
+        checkHealth();
+        const interval = setInterval(checkHealth, 30000); // Check every 30s
         return () => clearInterval(interval);
+    }, []);
+
+    // Fetch Users
+    useEffect(() => {
+        const fetchUsers = async () => {
+            const { data } = await supabase.from('profiles').select('*');
+            if (data) setUsers(data);
+        };
+        fetchUsers();
     }, []);
 
     const toggleMetric = (id: string) => {
@@ -75,7 +128,7 @@ const DevDashboard: React.FC = () => {
                                         <p className="font-medium text-gray-800">{m.label}</p>
                                         <p className="text-xs text-gray-500">{m.description}</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => toggleMetric(m.id)}
                                         className={`w-12 h-6 rounded-full relative transition-colors ${m.isEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
                                     >
@@ -92,20 +145,18 @@ const DevDashboard: React.FC = () => {
 
     const renderMonitor = () => {
         const enabledMetrics = metrics.filter(m => m.isEnabled);
-        
+
         return (
             <div className="space-y-6 animate-in fade-in duration-300">
                 {/* System Status Ticker */}
                 <div className="flex gap-4 overflow-x-auto pb-2">
-                    {MOCK_SYSTEM_HEALTH.map((s, i) => (
-                        <div key={i} className={`flex-shrink-0 p-3 rounded-lg border flex items-center gap-3 min-w-[200px] ${
-                            s.status === 'OK' ? 'bg-green-50 border-green-200' : 
-                            s.status === 'WARN' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'
-                        }`}>
-                            <div className={`w-3 h-3 rounded-full ${
-                                s.status === 'OK' ? 'bg-green-500' : 
-                                s.status === 'WARN' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
+                    {systemHealth.map((s, i) => (
+                        <div key={i} className={`flex-shrink-0 p-3 rounded-lg border flex items-center gap-3 min-w-[200px] ${s.status === 'OK' ? 'bg-green-50 border-green-200' :
+                                s.status === 'WARN' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'
+                            }`}>
+                            <div className={`w-3 h-3 rounded-full ${s.status === 'OK' ? 'bg-green-500' :
+                                    s.status === 'WARN' ? 'bg-yellow-500' : 'bg-red-500'
+                                }`} />
                             <div>
                                 <p className="text-xs font-bold text-gray-700">{s.service}</p>
                                 <p className="text-xs text-gray-500">{s.latency}ms | {s.uptime}%</p>
@@ -129,16 +180,16 @@ const DevDashboard: React.FC = () => {
                             {/* MOCK WIDGET RENDERER */}
                             <div className="h-40 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-100 border-dashed relative overflow-hidden">
                                 {m.widgetType === 'CHART' ? (
-                                     <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={[...Array(10)].map((_, i) => ({ val: Math.random() * 100 }))}>
                                             <Area type="monotone" dataKey="val" stroke="#6366f1" fill="#e0e7ff" strokeWidth={2} />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 ) : m.widgetType === 'LIST' ? (
                                     <div className="w-full h-full p-2 space-y-2 overflow-hidden">
-                                        <div className="h-2 bg-gray-200 rounded w-3/4 animate-pulse"/>
-                                        <div className="h-2 bg-gray-200 rounded w-full animate-pulse"/>
-                                        <div className="h-2 bg-gray-200 rounded w-1/2 animate-pulse"/>
+                                        <div className="h-2 bg-gray-200 rounded w-3/4 animate-pulse" />
+                                        <div className="h-2 bg-gray-200 rounded w-full animate-pulse" />
+                                        <div className="h-2 bg-gray-200 rounded w-1/2 animate-pulse" />
                                     </div>
                                 ) : (
                                     <div className="text-center">
@@ -171,16 +222,16 @@ const DevDashboard: React.FC = () => {
                     <tr>
                         <th className="px-6 py-4">User</th>
                         <th className="px-6 py-4">Role</th>
-                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Facility</th>
                         <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                    {MOCK_USERS_LIST.map(u => (
+                    {users.map(u => (
                         <tr key={u.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 font-bold text-gray-900">{u.name}</td>
+                            <td className="px-6 py-4 font-bold text-gray-900">{u.full_name || 'Unknown'}</td>
                             <td className="px-6 py-4"><span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">{u.role}</span></td>
-                            <td className="px-6 py-4 text-green-600 font-bold">{u.status}</td>
+                            <td className="px-6 py-4 text-gray-600">{u.facility_id || 'N/A'}</td>
                             <td className="px-6 py-4 text-right">
                                 <button className="text-indigo-600 font-bold hover:underline">Edit</button>
                             </td>
@@ -205,7 +256,7 @@ const DevDashboard: React.FC = () => {
                     ))}
                 </div>
             </div>
-            
+
             {/* Tools Panel */}
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -224,13 +275,13 @@ const DevDashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                     <h3 className="font-bold text-gray-900 mb-4">Maintenance</h3>
-                     <button className="w-full bg-red-50 text-red-600 border border-red-200 py-2 rounded-lg text-sm font-bold mb-2 hover:bg-red-100">
-                         Clear Redis Cache
-                     </button>
-                     <button className="w-full bg-slate-100 text-slate-700 border border-slate-200 py-2 rounded-lg text-sm font-bold hover:bg-slate-200">
-                         Restart Background Workers
-                     </button>
+                    <h3 className="font-bold text-gray-900 mb-4">Maintenance</h3>
+                    <button className="w-full bg-red-50 text-red-600 border border-red-200 py-2 rounded-lg text-sm font-bold mb-2 hover:bg-red-100">
+                        Clear Redis Cache
+                    </button>
+                    <button className="w-full bg-slate-100 text-slate-700 border border-slate-200 py-2 rounded-lg text-sm font-bold hover:bg-slate-200">
+                        Restart Background Workers
+                    </button>
                 </div>
             </div>
         </div>
@@ -238,7 +289,7 @@ const DevDashboard: React.FC = () => {
 
     return (
         <div className="pb-10 min-h-screen">
-             <div className="bg-slate-900 text-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-8 mb-8 shadow-md">
+            <div className="bg-slate-900 text-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-8 mb-8 shadow-md">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold mb-1">System Architect Console</h1>
@@ -249,9 +300,8 @@ const DevDashboard: React.FC = () => {
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-                                    activeTab === tab ? 'bg-indigo-500 text-white shadow' : 'text-slate-400 hover:text-white'
-                                }`}
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === tab ? 'bg-indigo-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                                    }`}
                             >
                                 {tab.replace('_', ' ')}
                             </button>
