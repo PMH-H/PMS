@@ -1,24 +1,39 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+// Vite exposes env vars prefixed with VITE_
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase credentials missing in environment variables.");
+    console.warn("⚠️ Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local");
+    console.warn("Running in OFFLINE MODE - using mock data only");
 }
 
-// To prevent "supabaseUrl is required" crash if env vars are missing, we use a placeholder or empty string,
-// but functionality will fail if keys are invalid.
-export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
+// Create Supabase client
+export const supabase = createClient(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder',
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+        },
+        realtime: {
+            params: {
+                eventsPerSecond: 10
+            }
+        }
+    }
+);
 
 // Helper to check connection
 export const checkSupabaseConnection = async () => {
     try {
         if (!supabaseUrl || !supabaseAnonKey) return false;
-        
+
         // Attempt a lightweight query to verify connectivity
-        const { error } = await supabase.from('drugs').select('count', { count: 'exact', head: true });
-        
+        const { error } = await supabase.from('items').select('count', { count: 'exact', head: true });
+
         if (error) {
             console.warn("Supabase connection check error:", error.message);
             return false;
@@ -28,4 +43,39 @@ export const checkSupabaseConnection = async () => {
         console.warn("Supabase connection check failed (Offline Mode Active).", e);
         return false;
     }
+};
+
+// Auth helpers
+export const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+    return { data, error };
+};
+
+export const signUp = async (email: string, password: string, metadata?: any) => {
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: metadata
+        }
+    });
+    return { data, error };
+};
+
+export const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    return { error };
+};
+
+export const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+};
+
+export const getCurrentSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
 };
