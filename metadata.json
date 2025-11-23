@@ -1,0 +1,7 @@
+{
+  "name": "PharmAI",
+  "description": "AI-powered pharmacy management system for patients, pharmacists, and admins.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
