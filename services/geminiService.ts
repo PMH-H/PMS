@@ -3,7 +3,7 @@ import { Medication, InteractionLevel } from '../types';
 import { generateUUID } from '../utils/uuid';
 
 // Initialize the Gemini API client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
 /**
  * Analyzes a prescription image to extract medication details.
