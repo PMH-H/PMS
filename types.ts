@@ -67,30 +67,36 @@ export interface Drug {
   brand?: string;
   description?: string;
   dosage_form?: string; // e.g. Tablet, Syrup, Cream
+  strength?: string;
+  unit: string; // Matches DB column (renamed from default_unit)
   barcode?: string;
-  image_front?: string; // Base64 or URL
-  image_back?: string; // Base64 or URL
-  default_unit: string;
+  image_front_url?: string; // Added _url suffix to match DB
+  image_back_url?: string; // Added _url suffix to match DB
   category: 'A' | 'B' | 'C';
+  ven_class?: 'V' | 'E' | 'N';
   min_level: number;
   max_level: number;
+  safety_stock?: number;
+  reorder_formula?: 'MIN_MAX' | 'LEAD_TIME' | 'CONSUMPTION' | 'EOQ' | 'EMERGENCY';
+  lead_time_days?: number;
   created_at: string;
+  price_estimate?: number;
   // Enhanced Medical Info for Customer UI
   active_ingredients?: string[];
   side_effects?: string[];
   usage_warning?: string;
   common_uses?: string[];
-  price_estimate?: number; // For display purposes
 }
 
 export interface DrugBatch {
   id: string;
-  drug_id: string;
+  item_id: string; // Changed from drug_id to match DB
+  facility_id: string; // Added required field from DB
   batch_no: string;
   expiry_date: string;
   manufacture_date?: string; // MFD
-  received_units: number;
-  current_units: number;
+  received_quantity: number; // Changed from received_units to match DB
+  current_quantity: number; // Changed from current_units to match DB
   cost_per_unit: number;
   created_at: string;
 }
@@ -98,9 +104,9 @@ export interface DrugBatch {
 export type EntryMethod = 'SCAN' | 'MANUAL' | 'SEARCH';
 
 export interface SaleItem {
-  drug_id: string;
+  item_id: string; // Changed from drug_id to match DB
   batch_id?: string; // If null, auto-selected via FEFO
-  units: number;
+  quantity: number; // Changed from units to match DB
   unit_price: number;
   entry_method?: EntryMethod;
 }
@@ -116,9 +122,9 @@ export interface Sale {
 
 export interface InventoryAdjustment {
   id: string;
-  drug_batch_id: string;
-  drug_id: string;
-  change_units: number;
+  batch_id: string; // Changed from drug_batch_id to match DB
+  item_id: string; // Changed from drug_id to match DB
+  quantity_change: number; // Changed from change_units to match DB
   reason: string;
   adjusted_by: string;
   created_at: string;
@@ -126,11 +132,12 @@ export interface InventoryAdjustment {
 
 export interface AuditLog {
   id: string;
-  resource_type: 'DRUG' | 'BATCH' | 'SALE' | 'ADJUSTMENT' | 'AUTH';
-  resource_id: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'SALE' | 'RECONCILE' | 'VOID';
-  payload: any;
-  performed_by: string;
+  table_name: string;
+  record_id: string;
+  action: string;
+  new_data: any;
+  previous_data?: any;
+  user_id: string;
   created_at: string;
 }
 
@@ -220,8 +227,9 @@ export interface AILog {
 
 export interface User {
   id: string;
-  name: string;
+  full_name: string; // Changed from name to match DB
   role: UserRole;
+  facility_id?: string; // Added for staff users
   avatar?: string;
   privacySettings?: PrivacySettings;
 }

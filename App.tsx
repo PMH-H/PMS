@@ -26,7 +26,7 @@ const INITIAL_DRUGS: Drug[] = [
     name: 'Amoxicillin 500mg',
     generic_name: 'Amoxicillin',
     barcode: '111000',
-    default_unit: 'capsules',
+    unit: 'capsules',
     dosage_form: 'Capsule',
     category: 'B',
     min_level: 200,
@@ -44,7 +44,7 @@ const INITIAL_DRUGS: Drug[] = [
     name: 'Lisinopril 10mg',
     generic_name: 'Lisinopril',
     barcode: '222000',
-    default_unit: 'tablets',
+    unit: 'tablets',
     dosage_form: 'Tablet',
     category: 'A',
     min_level: 150,
@@ -62,7 +62,7 @@ const INITIAL_DRUGS: Drug[] = [
     name: 'Atorvastatin 20mg',
     generic_name: 'Atorvastatin',
     barcode: '333000',
-    default_unit: 'tablets',
+    unit: 'tablets',
     dosage_form: 'Tablet',
     category: 'C',
     min_level: 300,
@@ -82,12 +82,13 @@ const getFutureDate = (days: number) => {
   return d.toISOString().split('T')[0];
 };
 
-const INITIAL_BATCHES: DrugBatch[] = [
-  { id: 'b1', drug_id: 'd1', batch_no: 'B001', expiry_date: getFutureDate(365), received_units: 500, current_units: 500, cost_per_unit: 0.15, created_at: new Date().toISOString() },
-  { id: 'b2', drug_id: 'd2', batch_no: 'B002', expiry_date: getFutureDate(15), received_units: 200, current_units: 120, cost_per_unit: 1.20, created_at: new Date().toISOString() },
-  { id: 'b3', drug_id: 'd3', batch_no: 'B003', expiry_date: getFutureDate(200), received_units: 1000, current_units: 800, cost_per_unit: 0.05, created_at: new Date().toISOString() },
-  // Multiple batch example for d1
-  { id: 'b4', drug_id: 'd1', batch_no: 'B001-OLD', expiry_date: getFutureDate(30), received_units: 100, current_units: 50, cost_per_unit: 0.14, created_at: new Date().toISOString() },
+// Note: INITIAL_BATCHES are not used directly anymore since batches require facility_id
+// They are kept here for reference only
+const INITIAL_BATCHES_REFERENCE: any[] = [
+  { id: 'b1', item_id: 'd1', batch_no: 'B001', expiry_date: getFutureDate(365), received_quantity: 500, current_quantity: 500, cost_per_unit: 0.15, created_at: new Date().toISOString() },
+  { id: 'b2', item_id: 'd2', batch_no: 'B002', expiry_date: getFutureDate(15), received_quantity: 200, current_quantity: 120, cost_per_unit: 1.20, created_at: new Date().toISOString() },
+  { id: 'b3', item_id: 'd3', batch_no: 'B003', expiry_date: getFutureDate(200), received_quantity: 1000, current_quantity: 800, cost_per_unit: 0.05, created_at: new Date().toISOString() },
+  { id: 'b4', item_id: 'd1', batch_no: 'B001-OLD', expiry_date: getFutureDate(30), received_quantity: 100, current_quantity: 50, cost_per_unit: 0.14, created_at: new Date().toISOString() },
 ];
 
 const App: React.FC = () => {
@@ -111,8 +112,8 @@ const App: React.FC = () => {
   // This maps the new robust batch system to the simple InventoryItem list expected by the old dashboard
   const inventorySummary: InventoryItem[] = useMemo(() => {
     return drugs.map(drug => {
-      const drugBatches = batches.filter(b => b.drug_id === drug.id);
-      const totalStock = drugBatches.reduce((sum, b) => sum + b.current_units, 0);
+      const drugBatches = batches.filter(b => b.item_id === drug.id);
+      const totalStock = drugBatches.reduce((sum, b) => sum + b.current_quantity, 0);
 
       // Find earliest expiry
       const earliestExpiry = drugBatches.length > 0
@@ -120,14 +121,14 @@ const App: React.FC = () => {
         : getFutureDate(365);
 
       // Average cost (weighted)
-      const totalValue = drugBatches.reduce((sum, b) => sum + (b.current_units * b.cost_per_unit), 0);
+      const totalValue = drugBatches.reduce((sum, b) => sum + (b.current_quantity * b.cost_per_unit), 0);
       const avgCost = totalStock > 0 ? totalValue / totalStock : 0;
 
       return {
         id: drug.id,
         name: drug.name,
         currentStock: totalStock,
-        unit: drug.default_unit,
+        unit: drug.unit,
         expirationDate: earliestExpiry,
         category: drug.category,
         minLevel: drug.min_level,
@@ -141,25 +142,58 @@ const App: React.FC = () => {
 
   // -- Helpers --
 
+  // Helper: map high-level entity names to actual DB table names
+  const auditTableNameFor = (entity: string) => {
+    const map: Record<string, string> = {
+      'INVENTORY': 'items',
+      'DRUG': 'items',
+      'ITEM': 'items',
+      'BATCH': 'item_batches',
+      'SALE': 'sales',
+      'PRESCRIPTION': 'prescriptions',
+      'ALERT': 'alerts',
+      'USER': 'profiles',
+      // add more mappings as needed
+    };
+    return map[entity] || entity.toLowerCase();
+  };
+
+  /**
+   * Centralized audit logger — maps app-level names to DB column names and persists safely.
+   * Non-fatal: will never throw to the UI if audit insert fails (database.createAuditLog is defensive).
+   */
   const addAuditLog = async (entity: string, action: string, entityId: string, details: any) => {
     if (!currentUser) return;
 
-    // Map to AuditLog type
-    const newLog: Partial<AuditLog> = {
-      resource_type: entity as any, // Cast to match union type
-      action: action as any,
-      resource_id: entityId,
-      payload: details,
-      performed_by: currentUser.id,
+    // Build DB-friendly payload (snake_case keys expected by DB)
+    const tableName = auditTableNameFor(entity);
+
+    const dbPayload: Partial<AuditLog> = {
+      table_name: tableName,                // required in DB (NOT NULL)
+      record_id: entityId ?? null,
+      action: action ?? null,
+      user_id: currentUser.id ?? null,
+      previous_data: details?.previous ?? null,
+      new_data: details?.new ?? details ?? null,
       created_at: new Date().toISOString()
     };
 
-    // Optimistic update
-    setAuditLogs(prev => [...prev, newLog as AuditLog]);
+    // Optimistic UI update (keep shape used in your UI)
+    try {
+      setAuditLogs(prev => [...prev, {
+        ...dbPayload,
+        // For local UI we might want id — create a temporary one so UI shows it immediately
+        id: dbPayload.record_id ? dbPayload.record_id.toString() : generateUUID()
+      } as AuditLog]);
 
-    // Persist to DB
-    await createAuditLog(newLog);
+      // Persist to DB — database.ts' createAuditLog is defensive and will not throw on insert errors
+      await createAuditLog(dbPayload);
+    } catch (err) {
+      // Defensive: ensure we never break the main user flow because audit logging failed
+      console.error('addAuditLog failed (non-fatal):', err);
+    }
   };
+
 
   const addAILog = (action: string, details: string, status: 'SUCCESS' | 'ERROR') => {
     setAiLogs(prev => [...prev, {
@@ -176,13 +210,19 @@ const App: React.FC = () => {
   const handleUpdateInventory = async (id: string, updates: Partial<InventoryItem>) => {
     try {
       const drug = drugs.find(d => d.id === id);
-      if (!drug) return;
+      if (!drug) {
+        alert('Drug not found');
+        return;
+      }
 
+      // Only update fields that exist in the items table
+      // Note: currentStock, expirationDate, costPerUnit are in item_batches, not items
       const updatedDrug: Partial<Drug> = {
         name: updates.name || drug.name,
         min_level: updates.minLevel ?? drug.min_level,
         max_level: updates.maxLevel ?? drug.max_level,
-        category: (updates.category as 'A' | 'B' | 'C') || drug.category
+        category: (updates.category as 'A' | 'B' | 'C') || drug.category,
+        unit: updates.unit || drug.unit
       };
 
       // Update in database
@@ -190,10 +230,16 @@ const App: React.FC = () => {
       setDrugs(prev => prev.map(d => d.id === id ? { ...d, ...updatedDrug } : d));
 
       addAuditLog('INVENTORY', 'UPDATE', id, updates);
-      alert('Inventory item updated successfully!');
+
+      // Inform user if they tried to update stock
+      if (updates.currentStock !== undefined) {
+        alert('Drug details updated! Note: To update stock quantities, use the Reconciliation feature or Add Batch.');
+      } else {
+        alert('Drug details updated successfully!');
+      }
     } catch (error) {
       console.error('Error updating inventory:', error);
-      alert('Failed to update inventory item.');
+      alert('Failed to update drug details.');
     }
   };
 
@@ -215,7 +261,7 @@ const App: React.FC = () => {
         sku: `SKU-${item.name.substring(0, 3).toUpperCase()}-${generateUUID().substring(0, 8)}`,
         name: item.name,
         barcode: `BAR-${generateUUID().substring(0, 12)}`,
-        default_unit: item.unit || 'units',
+        unit: item.unit || 'units',
         category: item.category as 'A' | 'B' | 'C',
         min_level: item.minLevel,
         max_level: item.maxLevel,
@@ -227,14 +273,23 @@ const App: React.FC = () => {
 
       // If initial stock provided, create a batch
       if (item.currentStock > 0) {
+        // Get user's facility_id
+        const { data: profile } = await supabase.from('profiles').select('facility_id').eq('id', currentUser?.id).single();
+        const facilityId = profile?.facility_id;
+
+        if (!facilityId) {
+          throw new Error('User not assigned to a facility');
+        }
+
         const newBatch: DrugBatch = {
           id: generateUUID(),
-          drug_id: newDrug.id,
+          item_id: newDrug.id,
+          facility_id: facilityId,
           batch_no: `BATCH-${Date.now()}`,
           expiry_date: item.expirationDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           manufacture_date: new Date().toISOString().split('T')[0],
-          received_units: item.currentStock,
-          current_units: item.currentStock,
+          received_quantity: item.currentStock,
+          current_quantity: item.currentStock,
           cost_per_unit: item.costPerUnit || 0,
           created_at: new Date().toISOString()
         };
@@ -266,7 +321,7 @@ const App: React.FC = () => {
 
   const handleReconcileInventory = async (id: string, physicalCount: number) => {
     try {
-      const drugBatches = batches.filter(b => b.drug_id === id).sort((a, b) =>
+      const drugBatches = batches.filter(b => b.item_id === id).sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -276,13 +331,13 @@ const App: React.FC = () => {
       }
 
       const batch = drugBatches[0];
-      const difference = physicalCount - batch.current_units;
+      const difference = physicalCount - batch.current_quantity;
 
       const adjustment: InventoryAdjustment = {
         id: generateUUID(),
-        drug_batch_id: batch.id,
-        drug_id: id,
-        change_units: difference,
+        batch_id: batch.id,
+        item_id: id,
+        quantity_change: difference,
         reason: 'Physical count reconciliation',
         adjusted_by: currentUser?.id || '',
         created_at: new Date().toISOString()
@@ -327,13 +382,13 @@ const App: React.FC = () => {
         .from('item_batches')
         .insert([{
           id: batch.id,
-          item_id: batch.drug_id,
+          item_id: batch.item_id,
           facility_id: facilityId,
           batch_no: batch.batch_no,
           expiry_date: batch.expiry_date,
           manufacture_date: batch.manufacture_date,
-          received_quantity: batch.received_units,
-          current_quantity: batch.current_units,
+          received_quantity: batch.received_quantity,
+          current_quantity: batch.current_quantity,
           cost_per_unit: batch.cost_per_unit
         }])
         .select()
@@ -345,7 +400,7 @@ const App: React.FC = () => {
       addAuditLog('BATCH', 'CREATE', batch.id, batch);
 
       // Check notifications
-      const drug = drugs.find(d => d.id === batch.drug_id);
+      const drug = drugs.find(d => d.id === batch.item_id);
       if (drug) {
         const newNotification: Notification = {
           id: generateUUID(),
@@ -448,24 +503,24 @@ const App: React.FC = () => {
       for (const adj of adjustmentsInput) {
         const { error } = await supabase
           .from('item_batches')
-          .update({ current_quantity: supabase.rpc('increment', { x: adj.change_units }) }) // This is tricky without current value
+          .update({ current_quantity: supabase.rpc('increment', { x: adj.quantity_change }) }) // This is tricky without current value
         // Better: Fetch, calc, update.
         // Or just use the value passed if it's absolute.
-        // The adjustment has 'change_units' (delta).
+        // The adjustment has 'quantity_change' (delta).
 
         // Let's fetch the batch first
-        const { data: batch } = await supabase.from('item_batches').select('current_quantity').eq('id', adj.drug_batch_id).single();
+        const { data: batch } = await supabase.from('item_batches').select('current_quantity').eq('id', adj.batch_id).single();
         if (batch) {
-          const newQty = batch.current_quantity + adj.change_units;
-          await supabase.from('item_batches').update({ current_quantity: newQty }).eq('id', adj.drug_batch_id);
+          const newQty = batch.current_quantity + adj.quantity_change;
+          await supabase.from('item_batches').update({ current_quantity: newQty }).eq('id', adj.batch_id);
 
           // Record movement
           await supabase.from('stock_movements').insert([{
-            item_id: adj.drug_id,
-            batch_id: adj.drug_batch_id,
+            item_id: adj.item_id,
+            batch_id: adj.batch_id,
             facility_id: (await supabase.from('profiles').select('facility_id').eq('id', currentUser.id).single()).data?.facility_id,
-            movement_type: adj.change_units > 0 ? 'ADJUST_UP' : 'ADJUST_DOWN',
-            quantity: Math.abs(adj.change_units),
+            movement_type: adj.quantity_change > 0 ? 'ADJUST_UP' : 'ADJUST_DOWN',
+            quantity: Math.abs(adj.quantity_change),
             reason: adj.reason,
             performed_by: currentUser.id
           }]);
@@ -567,8 +622,9 @@ const App: React.FC = () => {
       if (data) {
         setCurrentUser({
           id: data.id,
-          name: data.full_name || email.split('@')[0],
+          full_name: data.full_name || email.split('@')[0],
           role: data.role as UserRole,
+          facility_id: data.facility_id,
           // Load preferences from DB or use defaults
           privacySettings: data.preferences || {
             shareBrowsing: true,
@@ -606,12 +662,13 @@ const App: React.FC = () => {
         // Map database schema to our DrugBatch type
         const mappedBatches: DrugBatch[] = batchData.map(b => ({
           id: b.id,
-          drug_id: b.item_id,
+          item_id: b.item_id,
+          facility_id: b.facility_id,
           batch_no: b.batch_no,
           expiry_date: b.expiry_date,
           manufacture_date: b.manufacture_date,
-          received_units: b.received_quantity,
-          current_units: b.current_quantity,
+          received_quantity: b.received_quantity,
+          current_quantity: b.current_quantity,
           cost_per_unit: b.cost_per_unit,
           created_at: b.created_at
         }));

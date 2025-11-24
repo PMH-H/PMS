@@ -101,11 +101,11 @@ export const addBatch = async (batch: Partial<DrugBatch> & { facility_id: string
 
     // Also record stock movement
     await recordStockMovement({
-        item_id: batch.drug_id!,
+        item_id: batch.item_id!,
         batch_id: data.id,
         facility_id: batch.facility_id,
         movement_type: 'IN',
-        quantity: batch.received_units!,
+        quantity: batch.received_quantity!,
         unit_price: batch.cost_per_unit,
         reason: `Initial batch receipt: ${batch.batch_no}`
     });
@@ -207,7 +207,7 @@ export const processSale = async (
 ) => {
     // Start a transaction-like process
     // 1. Create sale record
-    const totalPrice = items.reduce((sum, item) => sum + (item.units * item.unit_price), 0);
+    const totalPrice = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
     const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -224,7 +224,7 @@ export const processSale = async (
 
     // 2. Update batches and record movements (FEFO logic)
     for (const item of items) {
-        let remainingUnits = item.units;
+        let remainingUnits = item.quantity;
 
         if (item.batch_id) {
             // Specific batch
@@ -244,7 +244,7 @@ export const processSale = async (
                 .eq('id', item.batch_id);
 
             await recordStockMovement({
-                item_id: item.drug_id,
+                item_id: item.item_id,
                 batch_id: item.batch_id,
                 facility_id: facilityId,
                 movement_type: 'OUT',
@@ -258,13 +258,13 @@ export const processSale = async (
             const { data: batches } = await supabase
                 .from('item_batches')
                 .select('*')
-                .eq('item_id', item.drug_id)
+                .eq('item_id', item.item_id)
                 .eq('facility_id', facilityId)
                 .gt('current_quantity', 0)
                 .order('expiry_date');
 
             if (!batches || batches.reduce((sum, b) => sum + b.current_quantity, 0) < remainingUnits) {
-                throw new Error(`Insufficient stock for item ${item.drug_id}`);
+                throw new Error(`Insufficient stock for item ${item.item_id}`);
             }
 
             for (const batch of batches) {
@@ -278,7 +278,7 @@ export const processSale = async (
                     .eq('id', batch.id);
 
                 await recordStockMovement({
-                    item_id: item.drug_id,
+                    item_id: item.item_id,
                     batch_id: batch.id,
                     facility_id: facilityId,
                     movement_type: 'OUT',
@@ -619,3 +619,4 @@ export const analyzeStockHealth = async (facilityId: string, dateRange?: { start
     if (error) throw error;
     return data;
 };
+

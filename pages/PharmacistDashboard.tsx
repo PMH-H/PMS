@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Prescription, PrescriptionStatus, InventoryItem, Medication } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
-import { analyzePrescriptionImage, checkDrugInteractions } from '../services/geminiService';
+import { analyzePrescriptionImage, checkDrugInteractions, optimizeInventoryLevels } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 
 interface PharmacistDashboardProps {
@@ -522,15 +522,6 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                 </div>
                                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 col-span-2 grid grid-cols-3 gap-4">
                                     <div className="col-span-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Stock Parameters</div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Per Unit (ZMW)</label>
-                                        <input
-                                            type="number" step="0.01" min="0"
-                                            value={formData.costPerUnit || 0}
-                                            onChange={(e) => setFormData({ ...formData, costPerUnit: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                    </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
                                         <input
