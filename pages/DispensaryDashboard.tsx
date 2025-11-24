@@ -18,7 +18,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     currentUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onAddBatch, onReconcile
 }) => {
     const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS'>('POS');
-    
+
     // -- POS State --
     const [cart, setCart] = useState<SaleItem[]>([]);
     const [barcodeInput, setBarcodeInput] = useState('');
@@ -28,12 +28,12 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [showRxModal, setShowRxModal] = useState(false);
     const [showManualSaleModal, setShowManualSaleModal] = useState(false);
-    
+
     // POS Edit State
-    const [editingCartItem, setEditingCartItem] = useState<{index: number, item: SaleItem} | null>(null);
+    const [editingCartItem, setEditingCartItem] = useState<{ index: number, item: SaleItem } | null>(null);
 
     // Manual Sale Form
-    const [manualSaleForm, setManualSaleForm] = useState<{drugId: string, qty: number, price: number, nameQuery: string}>({
+    const [manualSaleForm, setManualSaleForm] = useState<{ drugId: string, qty: number, price: number, nameQuery: string }>({
         drugId: '', qty: 1, price: 0, nameQuery: ''
     });
 
@@ -53,11 +53,11 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     const [selectedDrugId, setSelectedDrugId] = useState<string>('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [formError, setFormError] = useState('');
-    
+
     // -- Scanner State --
     const [isScanning, setIsScanning] = useState(false);
     const [scanContext, setScanContext] = useState<'POS' | 'CREATE_DRUG' | 'INVENTORY_LOOKUP'>('POS');
-    
+
     // Forms
     interface DrugForm extends Partial<Drug> {
         initialStock?: number;
@@ -79,11 +79,11 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     const checkExpiryWarning = (drugId: string) => {
         const drugBatches = batches.filter(b => b.drug_id === drugId && b.current_units > 0);
         if (drugBatches.length === 0) return null;
-        
+
         // Sort by expiry
-        drugBatches.sort((a,b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+        drugBatches.sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
         const nearest = drugBatches[0];
-        
+
         const daysUntilExpiry = (new Date(nearest.expiry_date).getTime() - Date.now()) / (1000 * 3600 * 24);
         if (daysUntilExpiry < 30) {
             return `⚠️ Warning: Batch ${nearest.batch_no} expires in ${Math.ceil(daysUntilExpiry)} days!`;
@@ -136,7 +136,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                 if (method === 'SCAN' || method === 'SEARCH') {
                     const existing = prev.find(item => item.drug_id === drug.id && item.unit_price === price);
                     if (existing) {
-                         return prev.map(item => item.drug_id === drug.id && item.unit_price === price ? { ...item, units: item.units + qty } : item);
+                        return prev.map(item => item.drug_id === drug.id && item.unit_price === price ? { ...item, units: item.units + qty } : item);
                     }
                 }
                 return [...prev, { drug_id: drug.id, units: qty, unit_price: price, entry_method: method }];
@@ -152,7 +152,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             addDrugToCart(drug, 'MANUAL');
             setBarcodeInput('');
         } else {
-             setPosError(`Item not found: ${barcodeInput}`);
+            setPosError(`Item not found: ${barcodeInput}`);
         }
     };
 
@@ -173,27 +173,27 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     const handleRxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if(!file) return;
-        
+        if (!file) return;
+
         setIsAnalyzing(true);
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onloadend = async () => {
             const base64 = (reader.result as string).split(',')[1];
             const meds = await analyzePrescriptionImage(base64);
-            
+
             let matchedCount = 0;
             meds.forEach(m => {
                 const match = drugs.find(d => d.name.toLowerCase().includes(m.name.toLowerCase()) || d.generic_name?.toLowerCase().includes(m.name.toLowerCase()));
-                if(match) {
+                if (match) {
                     addDrugToCart(match, 'SCAN');
                     matchedCount++;
                 }
             });
-            
+
             setIsAnalyzing(false);
             setShowRxModal(false);
-            if(matchedCount > 0) {
+            if (matchedCount > 0) {
                 alert(`Added ${matchedCount} detected items to cart.`);
             } else {
                 alert("Could not automatically match items. Please search manually.");
@@ -214,13 +214,13 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     };
 
     const cartTotal = cart.reduce((acc, i) => acc + (i.units * i.unit_price), 0);
-    const changeAmount = paymentMethod === 'CASH' && amountTendered 
+    const changeAmount = paymentMethod === 'CASH' && amountTendered
         ? Math.max(0, parseFloat(amountTendered) - cartTotal)
         : 0;
 
     const handlePaymentComplete = () => {
         onProcessSale(cart, customerName || "Walk-in Customer");
-        
+
         setLastSaleDetails({
             id: crypto.randomUUID().split('-')[0].toUpperCase(),
             total: cartTotal,
@@ -242,7 +242,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     };
 
     // --- INVENTORY HELPERS ---
-    
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image_front' | 'image_back') => {
         const file = e.target.files?.[0];
         if (file) {
@@ -342,8 +342,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
         setFormError('');
         if (!selectedDrugId) return;
         if (!batchForm.batch_no || !batchForm.expiry_date || !batchForm.manufacture_date || !batchForm.received_units) {
-             setFormError("Batch No, MFD, EPD, and Quantity are mandatory.");
-             return;
+            setFormError("Batch No, MFD, EPD, and Quantity are mandatory.");
+            return;
         }
 
         onAddBatch({
@@ -361,7 +361,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     const previewReconciliation = useMemo(() => {
         const deltas: { batch: DrugBatch, drug: Drug, system: number, physical: number, delta: number, val: number }[] = [];
-        
+
         Object.entries(reconcileCounts).forEach(([batchId, count]) => {
             const qty = count as number;
             const batch = batches.find(b => b.id === batchId);
@@ -404,12 +404,12 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     return (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px] flex flex-col relative w-full">
-            
+
             {/* Camera Scanner Overlay */}
             {isScanning && (
-                <BarcodeScanner 
-                    onDetected={processScanCode} 
-                    onClose={() => setIsScanning(false)} 
+                <BarcodeScanner
+                    onDetected={processScanCode}
+                    onClose={() => setIsScanning(false)}
                 />
             )}
 
@@ -426,9 +426,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                                activeTab === tab ? 'bg-emerald-500 text-white' : 'hover:bg-slate-800 text-slate-400'
-                            }`}
+                            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-emerald-500 text-white' : 'hover:bg-slate-800 text-slate-400'
+                                }`}
                         >
                             {tab}
                         </button>
@@ -446,16 +445,16 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <div className="flex flex-col md:flex-row gap-3">
                                     {/* Mobile: Grid, Desktop: Flex */}
                                     <div className="grid grid-cols-2 gap-3 md:flex md:flex-none">
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             onClick={() => openScanner('POS')}
                                             className="bg-slate-800 text-white px-4 py-3 rounded-lg hover:bg-slate-700 flex items-center justify-center gap-2"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" /></svg>
                                             <span className="truncate">Scan</span>
                                         </button>
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             onClick={() => setShowManualSaleModal(true)}
                                             className="bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
                                         >
@@ -464,8 +463,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                         </button>
                                     </div>
                                     <div className="relative flex-grow">
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             placeholder="Quick search drug..."
@@ -474,8 +473,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                         {searchTerm && (
                                             <div className="absolute top-full left-0 right-0 bg-white shadow-xl border border-gray-200 mt-1 rounded-lg z-50 max-h-48 overflow-y-auto">
                                                 {drugs.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase())).map(d => (
-                                                    <div 
-                                                        key={d.id} 
+                                                    <div
+                                                        key={d.id}
                                                         onClick={() => handleSearchSelect(d)}
                                                         className="p-3 hover:bg-emerald-50 cursor-pointer flex justify-between items-center border-b border-gray-50 last:border-0"
                                                     >
@@ -492,8 +491,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 </div>
 
                                 <form onSubmit={handleManualScanSubmit} className="flex gap-2">
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={barcodeInput}
                                         onChange={e => setBarcodeInput(e.target.value)}
                                         placeholder="Or enter SKU / Barcode directly..."
@@ -512,8 +511,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <h3 className="text-gray-500 font-bold text-xs uppercase mb-4">Quick Add (Common Items)</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {drugs.slice(0, 4).map(d => (
-                                        <button 
-                                            key={d.id} 
+                                        <button
+                                            key={d.id}
                                             onClick={() => addDrugToCart(d, 'SEARCH')}
                                             className="p-3 border border-gray-200 rounded-lg hover:border-emerald-400 hover:bg-emerald-50 text-left transition-all"
                                         >
@@ -549,12 +548,12 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                 <div className="font-bold text-gray-800 text-sm">ZMW {(item.units * item.unit_price).toFixed(2)}</div>
                                             </div>
                                             {warning && <div className="text-[10px] text-orange-600 bg-orange-50 px-1 mb-1 rounded">{warning}</div>}
-                                            
+
                                             {isEditing ? (
                                                 <div className="flex gap-2 items-center bg-gray-50 p-2 rounded">
                                                     <div>
                                                         <label className="text-[10px] uppercase text-gray-500 font-bold">Qty</label>
-                                                        <input 
+                                                        <input
                                                             type="number" min="1"
                                                             className="w-16 border rounded p-1 text-sm"
                                                             value={editingCartItem!.item.units}
@@ -563,14 +562,14 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] uppercase text-gray-500 font-bold">Price</label>
-                                                        <input 
+                                                        <input
                                                             type="number" min="0" step="0.1"
                                                             className="w-20 border rounded p-1 text-sm"
                                                             value={editingCartItem!.item.unit_price}
                                                             onChange={e => setEditingCartItem(prev => ({ ...prev!, item: { ...prev!.item, unit_price: parseFloat(e.target.value) || 0 } }))}
                                                         />
                                                     </div>
-                                                    <button 
+                                                    <button
                                                         onClick={() => { updateCartItem(idx, editingCartItem!.item); setEditingCartItem(null); }}
                                                         className="bg-green-500 text-white px-3 py-1 rounded text-xs ml-auto"
                                                     >
@@ -581,7 +580,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                 <div className="flex justify-between items-center text-sm text-gray-500">
                                                     <span>{item.units} x {item.unit_price.toFixed(2)}</span>
                                                     <div className="flex gap-2">
-                                                        <button onClick={() => setEditingCartItem({ index: idx, item: {...item} })} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold">Edit</button>
+                                                        <button onClick={() => setEditingCartItem({ index: idx, item: { ...item } })} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold">Edit</button>
                                                         <button onClick={() => setCart(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-xs font-bold">Remove</button>
                                                     </div>
                                                 </div>
@@ -595,7 +594,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <span>Total</span>
                                     <span>ZMW {cartTotal.toFixed(2)}</span>
                                 </div>
-                                <button 
+                                <button
                                     onClick={handleCheckoutClick}
                                     disabled={cart.length === 0}
                                     className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -606,9 +605,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                         </div>
                     </div>
                 )}
-                
+
                 {/* --- RENDER OTHER TABS --- */}
-                 {/* --- INVENTORY TAB --- */}
+                {/* --- INVENTORY TAB --- */}
                 {activeTab === 'INVENTORY' && (
                     <div className="space-y-6">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
@@ -617,8 +616,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <p className="text-sm text-gray-500">Scan items to add stock or create new products.</p>
                             </div>
                             <div className="flex gap-3 w-full sm:w-auto">
-                                <button 
-                                    onClick={() => openScanner('INVENTORY_LOOKUP')} 
+                                <button
+                                    onClick={() => openScanner('INVENTORY_LOOKUP')}
                                     className="flex-1 sm:flex-none bg-slate-800 text-white px-4 py-2 rounded-lg font-medium shadow hover:bg-slate-700 flex items-center justify-center gap-2"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -627,7 +626,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     </svg>
                                     Scan to Receive
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setDrugForm({ category: 'B', default_unit: 'units' }); setShowDrugModal(true); }}
                                     className="flex-1 sm:flex-none bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium shadow hover:bg-indigo-700 flex items-center justify-center gap-2"
                                 >
@@ -695,7 +694,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button 
+                                                    <button
                                                         onClick={() => { setSelectedDrugId(drug.id); setShowBatchModal(true); }}
                                                         className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50"
                                                     >
@@ -715,49 +714,49 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                 {activeTab === 'REPORTS' && (
                     <div className="space-y-6 animate-in fade-in">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                             <h3 className="font-bold text-xl text-gray-900 mb-4">Daily Sales Summary</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                                 <div className="bg-indigo-50 p-4 rounded-lg">
-                                     <p className="text-sm text-indigo-800 font-bold uppercase">Today's Revenue</p>
-                                     <p className="text-3xl font-bold text-indigo-900">ZMW {todayTotal.toFixed(2)}</p>
-                                 </div>
-                                 <div className="bg-emerald-50 p-4 rounded-lg">
-                                     <p className="text-sm text-emerald-800 font-bold uppercase">Transactions</p>
-                                     <p className="text-3xl font-bold text-emerald-900">{todaySales.length}</p>
-                                 </div>
-                                 <div className="bg-orange-50 p-4 rounded-lg">
-                                     <p className="text-sm text-orange-800 font-bold uppercase">Items Sold</p>
-                                     <p className="text-3xl font-bold text-orange-900">{todaySales.reduce((acc, s) => acc + s.items.reduce((a,i) => a + i.units, 0), 0)}</p>
-                                 </div>
-                             </div>
+                            <h3 className="font-bold text-xl text-gray-900 mb-4">Daily Sales Summary</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                <div className="bg-indigo-50 p-4 rounded-lg">
+                                    <p className="text-sm text-indigo-800 font-bold uppercase">Today's Revenue</p>
+                                    <p className="text-3xl font-bold text-indigo-900">ZMW {todayTotal.toFixed(2)}</p>
+                                </div>
+                                <div className="bg-emerald-50 p-4 rounded-lg">
+                                    <p className="text-sm text-emerald-800 font-bold uppercase">Transactions</p>
+                                    <p className="text-3xl font-bold text-emerald-900">{todaySales.length}</p>
+                                </div>
+                                <div className="bg-orange-50 p-4 rounded-lg">
+                                    <p className="text-sm text-orange-800 font-bold uppercase">Items Sold</p>
+                                    <p className="text-3xl font-bold text-orange-900">{todaySales.reduce((acc, s) => acc + s.items.reduce((a, i) => a + i.units, 0), 0)}</p>
+                                </div>
+                            </div>
 
-                             <div className="overflow-x-auto">
-                                 <table className="w-full text-sm text-left">
-                                     <thead className="bg-gray-50 uppercase text-xs text-gray-500">
-                                         <tr>
-                                             <th className="px-4 py-3">Time</th>
-                                             <th className="px-4 py-3">ID</th>
-                                             <th className="px-4 py-3">Customer</th>
-                                             <th className="px-4 py-3">Items</th>
-                                             <th className="px-4 py-3 text-right">Amount</th>
-                                         </tr>
-                                     </thead>
-                                     <tbody>
-                                         {todaySales.slice().reverse().map(sale => (
-                                             <tr key={sale.id} className="border-b hover:bg-gray-50">
-                                                 <td className="px-4 py-3">{new Date(sale.created_at).toLocaleTimeString()}</td>
-                                                 <td className="px-4 py-3 font-mono text-xs">{sale.id.slice(0, 8)}</td>
-                                                 <td className="px-4 py-3">{sale.customer_info}</td>
-                                                 <td className="px-4 py-3">{sale.items.length}</td>
-                                                 <td className="px-4 py-3 text-right font-bold">ZMW {sale.total_price.toFixed(2)}</td>
-                                             </tr>
-                                         ))}
-                                         {todaySales.length === 0 && (
-                                             <tr><td colSpan={5} className="text-center py-8 text-gray-400">No sales today.</td></tr>
-                                         )}
-                                     </tbody>
-                                 </table>
-                             </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 uppercase text-xs text-gray-500">
+                                        <tr>
+                                            <th className="px-4 py-3">Time</th>
+                                            <th className="px-4 py-3">ID</th>
+                                            <th className="px-4 py-3">Customer</th>
+                                            <th className="px-4 py-3">Items</th>
+                                            <th className="px-4 py-3 text-right">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {todaySales.slice().reverse().map(sale => (
+                                            <tr key={sale.id} className="border-b hover:bg-gray-50">
+                                                <td className="px-4 py-3">{new Date(sale.created_at).toLocaleTimeString()}</td>
+                                                <td className="px-4 py-3 font-mono text-xs">{sale.id.slice(0, 8)}</td>
+                                                <td className="px-4 py-3">{sale.customer_info}</td>
+                                                <td className="px-4 py-3">{sale.items.length}</td>
+                                                <td className="px-4 py-3 text-right font-bold">ZMW {sale.total_price.toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                        {todaySales.length === 0 && (
+                                            <tr><td colSpan={5} className="text-center py-8 text-gray-400">No sales today.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -784,8 +783,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                             Batch <span className="font-mono text-gray-800">{b.batch_no}</span>
                                                             <span className="text-xs ml-2">(Sys: {b.current_units})</span>
                                                         </div>
-                                                        <input 
-                                                            type="number" 
+                                                        <input
+                                                            type="number"
                                                             placeholder="Actual"
                                                             value={reconcileCounts[b.id] ?? ''}
                                                             onChange={e => setReconcileCounts(prev => ({ ...prev, [b.id]: parseInt(e.target.value) || 0 }))}
@@ -799,7 +798,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 })}
                             </div>
                             <div className="p-4 bg-gray-50 border-t border-gray-200">
-                                <button 
+                                <button
                                     onClick={() => setShowReconcilePreview(true)}
                                     className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700"
                                 >
@@ -851,11 +850,11 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <div className="p-4 bg-gray-50 border-t border-gray-200">
                                     <div className="flex justify-between font-bold text-gray-800 mb-4">
                                         <span>Net Value Impact</span>
-                                        <span className={previewReconciliation.reduce((a,b) => a+b.val, 0) < 0 ? 'text-red-600' : 'text-green-600'}>
-                                            ZMW {previewReconciliation.reduce((a,b) => a+b.val, 0).toFixed(2)}
+                                        <span className={previewReconciliation.reduce((a, b) => a + b.val, 0) < 0 ? 'text-red-600' : 'text-green-600'}>
+                                            ZMW {previewReconciliation.reduce((a, b) => a + b.val, 0).toFixed(2)}
                                         </span>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={confirmReconciliation}
                                         disabled={previewReconciliation.length === 0}
                                         className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 disabled:opacity-50"
@@ -870,7 +869,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             </div>
 
             {/* --- MODALS --- */}
-            
+
             {/* Rx Modal */}
             {showRxModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -889,9 +888,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <p className="text-xs text-indigo-600">Camera or File</p>
                                 </>
                             )}
-                            <input 
-                                type="file" 
-                                accept="image/*" 
+                            <input
+                                type="file"
+                                accept="image/*"
                                 capture="environment"
                                 disabled={isAnalyzing}
                                 className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
@@ -916,8 +915,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">1. Enter Drug Name</label>
                                 <div className="relative">
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Search..."
                                         className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none"
                                         value={manualSaleForm.nameQuery}
@@ -926,16 +925,16 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     {manualSaleForm.nameQuery && !manualSaleForm.drugId && (
                                         <div className="absolute top-full left-0 right-0 bg-white border shadow-lg mt-1 max-h-40 overflow-y-auto z-10">
                                             {drugs.filter(d => d.name.toLowerCase().includes(manualSaleForm.nameQuery.toLowerCase())).map(d => (
-                                                <div 
-                                                    key={d.id} 
+                                                <div
+                                                    key={d.id}
                                                     onClick={() => {
                                                         const batchesOfDrug = batches.filter(b => b.drug_id === d.id);
                                                         const estPrice = d.price_estimate || (batchesOfDrug.length > 0 ? batchesOfDrug[0].cost_per_unit * 1.5 : 0);
-                                                        setManualSaleForm(prev => ({ 
-                                                            ...prev, 
-                                                            drugId: d.id, 
-                                                            nameQuery: d.name, 
-                                                            price: estPrice 
+                                                        setManualSaleForm(prev => ({
+                                                            ...prev,
+                                                            drugId: d.id,
+                                                            nameQuery: d.name,
+                                                            price: estPrice
                                                         }));
                                                     }}
                                                     className="p-2 hover:bg-gray-50 cursor-pointer text-sm"
@@ -951,7 +950,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             {/* Step 2: Qty */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">2. Enter Quantity</label>
-                                <input 
+                                <input
                                     type="number" min="1"
                                     className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none"
                                     value={manualSaleForm.qty}
@@ -962,7 +961,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             {/* Step 3: Price */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">3. Enter Price (Unit)</label>
-                                <input 
+                                <input
                                     type="number" min="0" step="0.01"
                                     className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none"
                                     value={manualSaleForm.price}
@@ -971,7 +970,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             </div>
 
                             <div className="pt-2">
-                                <button 
+                                <button
                                     onClick={submitManualSale}
                                     disabled={!manualSaleForm.drugId}
                                     className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50"
@@ -992,7 +991,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             <h3 className="font-bold text-lg">Checkout</h3>
                             <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-white">✕</button>
                         </div>
-                        
+
                         <div className="p-6 space-y-6">
                             {/* Summary */}
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
@@ -1002,7 +1001,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-gray-500 uppercase font-bold">Items</p>
-                                    <p className="text-lg font-medium text-slate-900">{cart.reduce((a,b) => a+b.units, 0)}</p>
+                                    <p className="text-lg font-medium text-slate-900">{cart.reduce((a, b) => a + b.units, 0)}</p>
                                 </div>
                             </div>
 
@@ -1014,11 +1013,10 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                         <button
                                             key={method}
                                             onClick={() => setPaymentMethod(method)}
-                                            className={`py-3 rounded-lg text-sm font-bold border transition-all ${
-                                                paymentMethod === method 
-                                                ? 'bg-slate-900 text-white border-slate-900' 
-                                                : 'bg-white text-gray-600 border-gray-300 hover:border-slate-500'
-                                            }`}
+                                            className={`py-3 rounded-lg text-sm font-bold border transition-all ${paymentMethod === method
+                                                    ? 'bg-slate-900 text-white border-slate-900'
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-slate-500'
+                                                }`}
                                         >
                                             {method === 'MOBILE_MONEY' ? 'MOBILE' : method}
                                         </button>
@@ -1029,9 +1027,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             {/* Customer Info */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Customer Name (Optional)</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" 
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900"
                                     placeholder="Enter Name"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
@@ -1043,26 +1041,25 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Amount Tendered</label>
-                                        <input 
-                                            type="number" 
+                                        <input
+                                            type="number"
                                             autoFocus
-                                            className="w-full border border-gray-300 rounded-lg p-3 text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" 
+                                            className="w-full border border-gray-300 rounded-lg p-3 text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900"
                                             placeholder="0.00"
                                             value={amountTendered}
                                             onChange={(e) => setAmountTendered(e.target.value)}
                                         />
                                     </div>
-                                    <div className={`p-4 rounded-lg flex justify-between items-center ${
-                                        changeAmount < 0 ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'
-                                    }`}>
+                                    <div className={`p-4 rounded-lg flex justify-between items-center ${changeAmount < 0 ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'
+                                        }`}>
                                         <span className="font-bold">CHANGE</span>
                                         <span className="font-mono text-xl font-bold">ZMW {changeAmount.toFixed(2)}</span>
                                     </div>
                                 </div>
                             )}
 
-                             {/* Placeholder for Card/Mobile */}
-                             {paymentMethod !== 'CASH' && (
+                            {/* Placeholder for Card/Mobile */}
+                            {paymentMethod !== 'CASH' && (
                                 <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg text-sm border border-yellow-100 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -1073,7 +1070,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                         </div>
 
                         <div className="p-6 bg-gray-50 border-t border-gray-200">
-                             <button 
+                            <button
                                 onClick={handlePaymentComplete}
                                 disabled={paymentMethod === 'CASH' && (parseFloat(amountTendered || '0') < cartTotal)}
                                 className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all"
@@ -1110,7 +1107,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <span className="font-semibold text-gray-900">ZMW {lastSaleDetails.change.toFixed(2)}</span>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setShowReceiptModal(false)}
                                 className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800"
                             >
@@ -1135,14 +1132,15 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 </svg>
                             </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Left Column: Product Info */}
                             <div className="space-y-4">
                                 <h4 className="font-semibold text-gray-700 border-b pb-1">1. Product Identification</h4>
-                                
+
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Product Images</label>
+                                    <p className="text-xs text-gray-500 mb-2">📸 Tap to choose Camera or Gallery</p>
                                     <div className="flex gap-4">
                                         <div className="w-1/2">
                                             <div className="relative aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden hover:bg-gray-50 transition-colors">
@@ -1156,14 +1154,14 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                         <span className="text-xs">Front</span>
                                                     </div>
                                                 )}
-                                                <input 
-                                                    type="file" 
-                                                    accept="image/*" 
-                                                    capture="environment"
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
                                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                                     onChange={(e) => handleImageUpload(e, 'image_front')}
                                                 />
                                             </div>
+                                            <p className="text-[10px] text-gray-400 mt-1 text-center">Camera or Gallery</p>
                                         </div>
                                         <div className="w-1/2">
                                             <div className="relative aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden hover:bg-gray-50 transition-colors">
@@ -1177,17 +1175,17 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                         <span className="text-xs">Back</span>
                                                     </div>
                                                 )}
-                                                <input 
-                                                    type="file" 
-                                                    accept="image/*" 
-                                                    capture="environment"
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
                                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                                     onChange={(e) => handleImageUpload(e, 'image_back')}
                                                 />
                                             </div>
+                                            <p className="text-[10px] text-gray-400 mt-1 text-center">Camera or Gallery</p>
                                         </div>
                                     </div>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => handleAIAutoFill(drugForm.image_front || drugForm.image_back, 'DRUG')}
                                         disabled={isAnalyzing || (!drugForm.image_front && !drugForm.image_back)}
@@ -1197,7 +1195,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                             <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                         ) : (
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-300">
-                                              <path fillRule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813a3.75 3.75 0 002.576-2.576l.813-2.846A.75.75 0 019 4.5zM6.97 2.47a.75.75 0 011.06 0l5.228 5.228a.75.75 0 010 1.06l-5.228 5.228a.75.75 0 01-1.06-1.06l4.697-4.697-4.697-4.697a.75.75 0 010-1.06z" clipRule="evenodd" />
+                                                <path fillRule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813a3.75 3.75 0 002.576-2.576l.813-2.846A.75.75 0 019 4.5zM6.97 2.47a.75.75 0 011.06 0l5.228 5.228a.75.75 0 010 1.06l-5.228 5.228a.75.75 0 01-1.06-1.06l4.697-4.697-4.697-4.697a.75.75 0 010-1.06z" clipRule="evenodd" />
                                             </svg>
                                         )}
                                         {isAnalyzing ? 'Analyzing Image...' : 'AI Smart-Fill Details'}
@@ -1207,13 +1205,13 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Barcode</label>
                                     <div className="flex gap-2">
-                                        <input 
-                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none font-mono bg-white text-gray-900" 
-                                            placeholder="Scan or Enter" 
+                                        <input
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none font-mono bg-white text-gray-900"
+                                            placeholder="Scan or Enter"
                                             value={drugForm.barcode || ''}
-                                            onChange={e => setDrugForm({...drugForm, barcode: e.target.value})} 
+                                            onChange={e => setDrugForm({ ...drugForm, barcode: e.target.value })}
                                         />
-                                        <button 
+                                        <button
                                             onClick={() => openScanner('CREATE_DRUG')}
                                             className="bg-slate-800 text-white px-3 rounded hover:bg-slate-700 flex-shrink-0"
                                             title="Scan"
@@ -1227,55 +1225,55 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Medication Name <span className="text-red-500">*</span></label>
-                                    <input className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" value={drugForm.name || ''} placeholder="e.g. Paracetamol 500mg" onChange={e => setDrugForm({...drugForm, name: e.target.value})} />
+                                    <input className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" value={drugForm.name || ''} placeholder="e.g. Paracetamol 500mg" onChange={e => setDrugForm({ ...drugForm, name: e.target.value })} />
                                 </div>
-                                
+
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Internal SKU <span className="text-red-500">*</span></label>
-                                    <input className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" value={drugForm.sku || ''} placeholder="e.g. PARA-500" onChange={e => setDrugForm({...drugForm, sku: e.target.value})} />
+                                    <input className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-900" value={drugForm.sku || ''} placeholder="e.g. PARA-500" onChange={e => setDrugForm({ ...drugForm, sku: e.target.value })} />
                                 </div>
                             </div>
 
                             {/* Right Column: Stock & Logic */}
                             <div className="space-y-4">
                                 <h4 className="font-semibold text-gray-700 border-b pb-1">2. Initial Stock & Logic</h4>
-                                
+
                                 <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100 space-y-3">
                                     <h5 className="text-sm font-bold text-emerald-800">New Batch Entry (Mandatory for Stock)</h5>
-                                    
+
                                     <div className="flex gap-2">
                                         <div className="w-1/2">
                                             <label className="text-xs font-bold text-gray-500 uppercase">Quantity</label>
-                                            <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" placeholder="Units" value={drugForm.initialStock || ''} onChange={e => setDrugForm({...drugForm, initialStock: parseInt(e.target.value)})} />
+                                            <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" placeholder="Units" value={drugForm.initialStock || ''} onChange={e => setDrugForm({ ...drugForm, initialStock: parseInt(e.target.value) })} />
                                         </div>
                                         <div className="w-1/2">
                                             <label className="text-xs font-bold text-gray-500 uppercase">Cost (ZMW)</label>
-                                            <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" step="0.01" placeholder="0.00" value={drugForm.costPerUnit || ''} onChange={e => setDrugForm({...drugForm, costPerUnit: parseFloat(e.target.value)})} />
+                                            <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" step="0.01" placeholder="0.00" value={drugForm.costPerUnit || ''} onChange={e => setDrugForm({ ...drugForm, costPerUnit: parseFloat(e.target.value) })} />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
                                             <label className="text-xs font-bold text-gray-500 uppercase">MFD <span className="text-red-500">*</span></label>
-                                            <input className="w-full border p-2 rounded text-xs bg-white text-gray-900" type="date" value={drugForm.manufactureDate || ''} onChange={e => setDrugForm({...drugForm, manufactureDate: e.target.value})} />
+                                            <input className="w-full border p-2 rounded text-xs bg-white text-gray-900" type="date" value={drugForm.manufactureDate || ''} onChange={e => setDrugForm({ ...drugForm, manufactureDate: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="text-xs font-bold text-gray-500 uppercase">Expiry (EPD) <span className="text-red-500">*</span></label>
-                                            <input className="w-full border p-2 rounded text-xs bg-white text-gray-900" type="date" value={drugForm.expiryDate || ''} onChange={e => setDrugForm({...drugForm, expiryDate: e.target.value})} />
+                                            <input className="w-full border p-2 rounded text-xs bg-white text-gray-900" type="date" value={drugForm.expiryDate || ''} onChange={e => setDrugForm({ ...drugForm, expiryDate: e.target.value })} />
                                         </div>
                                     </div>
 
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Batch Number <span className="text-red-500">*</span></label>
-                                        <input className="w-full border p-2 rounded bg-white text-gray-900" placeholder="Batch/Lot No" value={drugForm.batchNo || ''} onChange={e => setDrugForm({...drugForm, batchNo: e.target.value})} />
+                                        <input className="w-full border p-2 rounded bg-white text-gray-900" placeholder="Batch/Lot No" value={drugForm.batchNo || ''} onChange={e => setDrugForm({ ...drugForm, batchNo: e.target.value })} />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Stock Levels</label>
                                     <div className="flex gap-2">
-                                        <input className="w-1/2 border p-2 rounded bg-white text-gray-900" type="number" placeholder="Min Level" value={drugForm.min_level || ''} onChange={e => setDrugForm({...drugForm, min_level: parseInt(e.target.value)})} />
-                                        <input className="w-1/2 border p-2 rounded bg-white text-gray-900" type="number" placeholder="Max Level" value={drugForm.max_level || ''} onChange={e => setDrugForm({...drugForm, max_level: parseInt(e.target.value)})} />
+                                        <input className="w-1/2 border p-2 rounded bg-white text-gray-900" type="number" placeholder="Min Level" value={drugForm.min_level || ''} onChange={e => setDrugForm({ ...drugForm, min_level: parseInt(e.target.value) })} />
+                                        <input className="w-1/2 border p-2 rounded bg-white text-gray-900" type="number" placeholder="Max Level" value={drugForm.max_level || ''} onChange={e => setDrugForm({ ...drugForm, max_level: parseInt(e.target.value) })} />
                                     </div>
                                 </div>
                             </div>
@@ -1303,7 +1301,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                         <h3 className="font-bold text-lg mb-4 text-gray-900">
                             Add Batch: <span className="text-indigo-600">{drugs.find(d => d.id === selectedDrugId)?.name}</span>
                         </h3>
-                         {/* Optional Image Capture for Batch */}
+                        {/* Optional Image Capture for Batch */}
                         <div className="mb-4">
                             <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center hover:bg-gray-50 cursor-pointer">
                                 <span className="text-xs text-gray-500 font-bold uppercase mb-2">Scan Label for Auto-Fill</span>
@@ -1311,9 +1309,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM10 14a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg>
                                     Capture & AI Analyze
                                 </button>
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
+                                <input
+                                    type="file"
+                                    accept="image/*"
                                     capture="environment"
                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                     onChange={(e) => {
@@ -1326,31 +1324,31 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     }}
                                 />
                             </div>
-                             {isAnalyzing && <p className="text-xs text-indigo-600 mt-1 animate-pulse text-center">AI is extracting batch details...</p>}
+                            {isAnalyzing && <p className="text-xs text-indigo-600 mt-1 animate-pulse text-center">AI is extracting batch details...</p>}
                         </div>
 
                         <div className="space-y-3">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Batch Number <span className="text-red-500">*</span></label>
-                                <input className="w-full border p-2 rounded bg-white text-gray-900" placeholder="Batch No" value={batchForm.batch_no || ''} onChange={e => setBatchForm({...batchForm, batch_no: e.target.value})} />
+                                <input className="w-full border p-2 rounded bg-white text-gray-900" placeholder="Batch No" value={batchForm.batch_no || ''} onChange={e => setBatchForm({ ...batchForm, batch_no: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Manufacture Date <span className="text-red-500">*</span></label>
-                                    <input className="w-full border p-2 rounded bg-white text-gray-900" type="date" value={batchForm.manufacture_date || ''} onChange={e => setBatchForm({...batchForm, manufacture_date: e.target.value})} />
+                                    <input className="w-full border p-2 rounded bg-white text-gray-900" type="date" value={batchForm.manufacture_date || ''} onChange={e => setBatchForm({ ...batchForm, manufacture_date: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Expiry Date <span className="text-red-500">*</span></label>
-                                    <input className="w-full border p-2 rounded bg-white text-gray-900" type="date" value={batchForm.expiry_date || ''} onChange={e => setBatchForm({...batchForm, expiry_date: e.target.value})} />
+                                    <input className="w-full border p-2 rounded bg-white text-gray-900" type="date" value={batchForm.expiry_date || ''} onChange={e => setBatchForm({ ...batchForm, expiry_date: e.target.value })} />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Received Units <span className="text-red-500">*</span></label>
-                                <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" placeholder="Quantity" value={batchForm.received_units || ''} onChange={e => setBatchForm({...batchForm, received_units: parseInt(e.target.value)})} />
+                                <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" placeholder="Quantity" value={batchForm.received_units || ''} onChange={e => setBatchForm({ ...batchForm, received_units: parseInt(e.target.value) })} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cost Per Unit</label>
-                                <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" step="0.01" placeholder="Cost" value={batchForm.cost_per_unit || ''} onChange={e => setBatchForm({...batchForm, cost_per_unit: parseFloat(e.target.value)})} />
+                                <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" step="0.01" placeholder="Cost" value={batchForm.cost_per_unit || ''} onChange={e => setBatchForm({ ...batchForm, cost_per_unit: parseFloat(e.target.value) })} />
                             </div>
                         </div>
 
