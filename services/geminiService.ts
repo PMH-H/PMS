@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@google/generative-ai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { Medication, InteractionLevel } from '../types';
 import { generateUUID } from '../utils/uuid';
 
