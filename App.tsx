@@ -206,6 +206,97 @@ const App: React.FC = () => {
     }]);
   };
 
+  // ===== INVENTORY CRUD HANDLERS =====
+
+  const handleAddInventory = async (item: Omit<InventoryItem, 'id'>) => {
+    try {
+      const newDrug: Drug = {
+        id: generateUUID(),
+        sku: `SKU-${item.name.substring(0, 3).toUpperCase()}-${generateUUID().substring(0, 8)}`,
+        name: item.name,
+        barcode: `BAR-${generateUUID().substring(0, 12)}`,
+        default_unit: item.unit || 'units',
+        category: item.category as 'A' | 'B' | 'C',
+        min_level: item.minLevel,
+        max_level: item.maxLevel,
+        created_at: new Date().toISOString()
+      };
+
+      await createItem(newDrug);
+      setDrugs(prev => [...prev, newDrug]);
+
+      // If initial stock provided, create a batch
+      if (item.currentStock > 0) {
+        const newBatch: DrugBatch = {
+          id: generateUUID(),
+          drug_id: newDrug.id,
+          batch_no: `BATCH-${Date.now()}`,
+          expiry_date: item.expirationDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          manufacture_date: new Date().toISOString().split('T')[0],
+          received_units: item.currentStock,
+          current_units: item.currentStock,
+          cost_per_unit: item.costPerUnit || 0,
+          created_at: new Date().toISOString()
+        };
+        await handleAddBatch(newBatch);
+      }
+
+      addAuditLog('INVENTORY', 'CREATE', newDrug.id, newDrug);
+    } catch (error) {
+      console.error('Error adding inventory:', error);
+      alert('Failed to add inventory item.');
+    }
+  };
+
+  const handleDeleteInventory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this item? This will also delete all batches.')) return;
+
+    try {
+      // Delete from database
+      await supabase.from('items').delete().eq('id', id);
+      setDrugs(prev => prev.filter(d => d.id !== id));
+      setBatches(prev => prev.filter(b => b.drug_id !== id));
+
+      addAuditLog('INVENTORY', 'DELETE', id, {});
+    } catch (error) {
+      console.error('Error deleting inventory:', error);
+      alert('Failed to delete inventory item.');
+    }
+  };
+
+  const handleReconcileInventory = async (id: string, physicalCount: number) => {
+    try {
+      const drugBatches = batches.filter(b => b.drug_id === id).sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      if (drugBatches.length === 0) {
+        alert('No batches found for this item.');
+        return;
+      }
+
+      const batch = drugBatches[0];
+      const difference = physicalCount - batch.current_units;
+
+      const adjustment: InventoryAdjustment = {
+        id: generateUUID(),
+        drug_batch_id: batch.id,
+        drug_id: id,
+        change_units: difference,
+        reason: 'Physical count reconciliation',
+        adjusted_by: currentUser?.id || '',
+        created_at: new Date().toISOString()
+      };
+
+      await handleReconcile([adjustment]);
+    } catch (error) {
+      console.error('Error reconciling inventory:', error);
+      alert('Failed to reconcile inventory.');
+    }
+  };
+
+  // ===== END INVENTORY CRUD HANDLERS =====
+
   // -- Handlers --
 
   const handleCreateDrug = async (drug: Drug) => {
@@ -216,18 +307,28 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Error creating drug:', error);
       alert('Failed to create drug. Please try again.');
+      throw error;
     }
   };
 
   const handleAddBatch = async (batch: DrugBatch) => {
     try {
-      // Note: addBatch from database.ts expects facility_id which we don't have in current schema
-      // For now, use direct insert
+      // Get user's facility_id
+      const { data: profile } = await supabase.from('profiles').select('facility_id').eq('id', currentUser?.id).single();
+      const facilityId = profile?.facility_id;
+
+      if (!facilityId) {
+        alert('Error: User not assigned to a facility. Cannot add batch.');
+        return;
+      }
+
+      // Insert batch with facility_id
       const { data, error } = await supabase
         .from('item_batches')
         .insert([{
           id: batch.id,
           item_id: batch.drug_id,
+          facility_id: facilityId,
           batch_no: batch.batch_no,
           expiry_date: batch.expiry_date,
           manufacture_date: batch.manufacture_date,
