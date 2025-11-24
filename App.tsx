@@ -617,10 +617,10 @@ const App: React.FC = () => {
               prescriptions={prescriptions}
               inventory={inventorySummary}
               onUpdateStatus={handleLegacyUpdateStatus}
-              onAddInventory={() => alert("Please use Dispensary Module")}
-              onUpdateInventory={() => alert("Please use Dispensary Module")}
-              onDeleteInventory={() => alert("Please use Dispensary Module")}
-              onReconcileInventory={() => alert("Please use Dispensary Module")}
+              onAddInventory={handleAddInventory}
+              onUpdateInventory={handleUpdateInventory}
+              onDeleteInventory={handleDeleteInventory}
+              onReconcileInventory={handleReconcileInventory}
               onAddPrescription={handleAddPrescription}
             />
 
@@ -633,6 +633,8 @@ const App: React.FC = () => {
               sales={sales}
               onProcessSale={handleProcessSale}
               onCreateDrug={handleCreateDrug}
+              onUpdateDrug={handleUpdateInventory}
+              onDeleteDrug={handleDeleteInventory}
               onAddBatch={handleAddBatch}
               onReconcile={handleReconcile}
             />

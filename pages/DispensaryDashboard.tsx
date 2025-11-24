@@ -11,12 +11,14 @@ interface DispensaryDashboardProps {
     sales?: Sale[];
     onProcessSale: (items: SaleItem[], customerInfo?: string) => void;
     onCreateDrug: (drug: Drug) => void;
+    onUpdateDrug: (id: string, updates: Partial<Drug>) => void;
+    onDeleteDrug: (id: string) => void;
     onAddBatch: (batch: DrugBatch) => void;
     onReconcile: (adjustments: InventoryAdjustment[]) => void;
 }
 
 const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
-    currentUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onAddBatch, onReconcile
+    currentUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onUpdateDrug, onDeleteDrug, onAddBatch, onReconcile
 }) => {
     const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS'>('POS');
 
@@ -695,12 +697,37 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button
-                                                        onClick={() => { setSelectedDrugId(drug.id); setShowBatchModal(true); }}
-                                                        className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50"
-                                                    >
-                                                        + Batch
-                                                    </button>
+                                                    <div className="flex gap-2 justify-end">
+                                                        <button
+                                                            onClick={() => {
+                                                                setDrugForm({
+                                                                    ...drug,
+                                                                    category: drug.category || 'B',
+                                                                    default_unit: drug.default_unit || 'units'
+                                                                });
+                                                                setShowDrugModal(true);
+                                                            }}
+                                                            className="text-xs bg-white border border-indigo-300 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-50"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm(`Delete ${drug.name}? This will also delete all batches.`)) {
+                                                                    onDeleteDrug(drug.id);
+                                                                }
+                                                            }}
+                                                            className="text-xs bg-white border border-red-300 text-red-600 px-2 py-1 rounded hover:bg-red-50"
+                                                        >
+                                                            Del
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setSelectedDrugId(drug.id); setShowBatchModal(true); }}
+                                                            className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50"
+                                                        >
+                                                            + Batch
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
