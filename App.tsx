@@ -10,7 +10,7 @@ import DispensaryDashboard from './pages/DispensaryDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import DevDashboard from './pages/DevDashboard';
 import { checkSupabaseConnection, supabase, getCurrentUser } from './services/supabase';
-import { createItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus } from './services/database';
+import { createItem, updateItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus } from './services/database';
 import { analyzePrescriptionImage, checkDrugInteractions } from './services/geminiService';
 import { generateUUID } from './utils/uuid';
 import {
@@ -171,6 +171,30 @@ const App: React.FC = () => {
       latencyMs: Math.floor(Math.random() * 500) + 200,
       details
     }]);
+  };
+
+  const handleUpdateInventory = async (id: string, updates: Partial<InventoryItem>) => {
+    try {
+      const drug = drugs.find(d => d.id === id);
+      if (!drug) return;
+
+      const updatedDrug: Partial<Drug> = {
+        name: updates.name || drug.name,
+        min_level: updates.minLevel ?? drug.min_level,
+        max_level: updates.maxLevel ?? drug.max_level,
+        category: (updates.category as 'A' | 'B' | 'C') || drug.category
+      };
+
+      // Update in database
+      await updateItem(id, updatedDrug);
+      setDrugs(prev => prev.map(d => d.id === id ? { ...d, ...updatedDrug } : d));
+
+      addAuditLog('INVENTORY', 'UPDATE', id, updates);
+      alert('Inventory item updated successfully!');
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      alert('Failed to update inventory item.');
+    }
   };
 
   const handleLogSearch = (term: string, category: 'PRODUCT' | 'SYMPTOM') => {
