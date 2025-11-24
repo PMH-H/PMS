@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Drug, DrugBatch, SaleItem, User, UserRole, InventoryAdjustment, Sale, Medication, EntryMethod } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { extractDrugDetails, analyzePrescriptionImage } from '../services/geminiService';
+import { generateUUID } from '../utils/uuid';
 
 interface DispensaryDashboardProps {
     currentUser: User;
@@ -222,7 +223,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
         onProcessSale(cart, customerName || "Walk-in Customer");
 
         setLastSaleDetails({
-            id: crypto.randomUUID().split('-')[0].toUpperCase(),
+            id: generateUUID().split('-')[0].toUpperCase(),
             total: cartTotal,
             change: changeAmount,
             customer: customerName || "Walk-in Customer"
@@ -302,7 +303,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             }
         }
 
-        const newDrugId = crypto.randomUUID();
+        const newDrugId = generateUUID();
         const newDrug: Drug = {
             id: newDrugId,
             sku: drugForm.sku,
@@ -321,7 +322,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
         if (drugForm.initialStock && drugForm.initialStock > 0) {
             const newBatch: DrugBatch = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 drug_id: newDrugId,
                 batch_no: drugForm.batchNo!,
                 expiry_date: drugForm.expiryDate!,
@@ -348,7 +349,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
         onAddBatch({
             ...batchForm,
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             drug_id: selectedDrugId,
             current_units: batchForm.received_units,
             created_at: new Date().toISOString()
@@ -384,7 +385,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     const confirmReconciliation = () => {
         const adjs: InventoryAdjustment[] = previewReconciliation.map(d => ({
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             drug_batch_id: d.batch.id,
             drug_id: d.drug.id,
             change_units: d.delta,
@@ -1014,8 +1015,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                             key={method}
                                             onClick={() => setPaymentMethod(method)}
                                             className={`py-3 rounded-lg text-sm font-bold border transition-all ${paymentMethod === method
-                                                    ? 'bg-slate-900 text-white border-slate-900'
-                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-slate-500'
+                                                ? 'bg-slate-900 text-white border-slate-900'
+                                                : 'bg-white text-gray-600 border-gray-300 hover:border-slate-500'
                                                 }`}
                                         >
                                             {method === 'MOBILE_MONEY' ? 'MOBILE' : method}

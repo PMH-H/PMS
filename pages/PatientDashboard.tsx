@@ -2,6 +2,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Medication, Prescription, PrescriptionStatus, InteractionLevel, Notification, Drug, DrugBatch, PrivacySettings } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
+import { generateUUID } from '../utils/uuid';
 
 interface PatientDashboardProps {
     prescriptions: Prescription[];
@@ -101,7 +102,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                 if (meds.length > 0) {
                     const interactions = await checkDrugInteractions([...prescriptions.flatMap(p => p.medications), ...meds]);
                     const newRx: Prescription = {
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         patientName: "Me",
                         date: new Date().toISOString().split('T')[0],
                         medications: meds,

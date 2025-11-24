@@ -11,6 +11,8 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import DevDashboard from './pages/DevDashboard';
 import { checkSupabaseConnection, supabase, getCurrentUser } from './services/supabase';
 import { createItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus } from './services/database';
+import { analyzePrescriptionImage, checkDrugInteractions } from './services/geminiService';
+import { generateUUID } from './utils/uuid';
 import {
   UserRole, User, Prescription, PrescriptionStatus, Notification, AILog,
   Drug, DrugBatch, Sale, InventoryAdjustment, AuditLog, InventoryItem, SaleItem, SearchLog
@@ -161,7 +163,7 @@ const App: React.FC = () => {
 
   const addAILog = (action: string, details: string, status: 'SUCCESS' | 'ERROR') => {
     setAiLogs(prev => [...prev, {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       timestamp: new Date().toISOString(),
       action,
       model: 'gemini-2.5-flash',
@@ -173,7 +175,7 @@ const App: React.FC = () => {
 
   const handleLogSearch = (term: string, category: 'PRODUCT' | 'SYMPTOM') => {
     setSearchLogs(prev => [...prev, {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       term,
       category,
       timestamp: new Date().toISOString()
@@ -221,7 +223,7 @@ const App: React.FC = () => {
       const drug = drugs.find(d => d.id === batch.drug_id);
       if (drug) {
         const newNotification: Notification = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           message: `New Batch Added: ${drug.name} (${batch.batch_no})`,
           timestamp: new Date().toISOString(),
           read: false,

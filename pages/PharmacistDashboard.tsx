@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Prescription, InventoryItem, PrescriptionStatus } from '../types';
+import { Prescription, PrescriptionStatus, InventoryItem, Medication } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
-import { optimizeInventoryLevels, analyzePrescriptionImage, checkDrugInteractions } from '../services/geminiService';
+import { analyzePrescriptionImage, checkDrugInteractions } from '../services/geminiService';
+import { generateUUID } from '../utils/uuid';
 
 interface PharmacistDashboardProps {
     prescriptions: Prescription[];
@@ -130,7 +131,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 if (meds.length > 0) {
                     const interactions = await checkDrugInteractions(meds);
                     const newRx: Prescription = {
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         patientName: "Walk-in Patient",
                         date: new Date().toISOString().split('T')[0],
                         medications: meds,
@@ -458,8 +459,8 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === tab
-                                ? 'bg-indigo-100 text-indigo-700 shadow-sm'
-                                : 'text-gray-500 hover:bg-gray-50'
+                            ? 'bg-indigo-100 text-indigo-700 shadow-sm'
+                            : 'text-gray-500 hover:bg-gray-50'
                             }`}
                     >
                         {tab === 'STOCK' ? 'STOCK CONTROL' : tab}
