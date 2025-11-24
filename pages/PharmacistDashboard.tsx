@@ -520,47 +520,56 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                 </div>
-
                                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 col-span-2 grid grid-cols-3 gap-4">
                                     <div className="col-span-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Stock Parameters</div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Current</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Per Unit (ZMW)</label>
                                         <input
-                                            required type="number" min="0"
-                                            value={formData.currentStock}
-                                            onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) })}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                            type="number" step="0.01" min="0"
+                                            value={formData.costPerUnit || 0}
+                                            onChange={(e) => setFormData({ ...formData, costPerUnit: parseFloat(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1 text-red-600">Min (Reorder)</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
+                                        <input
+                                            placeholder="e.g., 100"
+                                            required type="number" min="0"
+                                            value={formData.currentStock || 0}
+                                            onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Min Level</label>
                                         <input
                                             required type="number" min="0"
-                                            value={formData.minLevel}
-                                            onChange={(e) => setFormData({ ...formData, minLevel: parseInt(e.target.value) })}
-                                            className="w-full border border-red-200 bg-red-50 rounded-lg px-3 py-2"
+                                            value={formData.minLevel || 0}
+                                            onChange={(e) => setFormData({ ...formData, minLevel: parseInt(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Max Level</label>
                                         <input
                                             required type="number" min="0"
-                                            value={formData.maxLevel}
-                                            onChange={(e) => setFormData({ ...formData, maxLevel: parseInt(e.target.value) })}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                            value={formData.maxLevel || 0}
+                                            onChange={(e) => setFormData({ ...formData, maxLevel: parseInt(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Lead Time (days)</label>
+                                        <input
+                                            type="number" min="0"
+                                            value={formData.leadTime || 0}
+                                            onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                                         />
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Lead Time (Days)</label>
-                                    <input
-                                        type="number" min="0"
-                                        value={formData.leadTime}
-                                        onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) })}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none"
-                                    />
-                                </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Expiration Date</label>
                                     <input

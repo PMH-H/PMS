@@ -184,121 +184,6 @@ const App: React.FC = () => {
 
   // -- Handlers --
 
-  // ===== INVENTORY CRUD HANDLERS FOR PHARMACIST DASHBOARD =====
-
-  const handleAddInventory = async (item: Omit<InventoryItem, 'id'>) => {
-    // InventoryItem is a summary view, we need to create Drug + Batch
-    try {
-      const newDrug: Drug = {
-        id: generateUUID(),
-        sku: item.sku || `SKU-${Date.now()}`,
-        name: item.name,
-        barcode: item.sku,
-        default_unit: 'units',
-        category: item.category as 'A' | 'B' | 'C',
-        min_level: item.minLevel,
-        max_level: item.maxLevel,
-        created_at: new Date().toISOString()
-      };
-
-      await createItem(newDrug);
-      setDrugs(prev => [...prev, newDrug]);
-
-      // If initial stock provided, create a batch
-      if (item.currentStock > 0) {
-        const newBatch: DrugBatch = {
-          id: generateUUID(),
-          drug_id: newDrug.id,
-          batch_no: `BATCH-${Date.now()}`,
-          expiry_date: item.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          manufacture_date: new Date().toISOString().split('T')[0],
-          received_units: item.currentStock,
-          current_units: item.currentStock,
-          cost_per_unit: item.costPerUnit || 0,
-          created_at: new Date().toISOString()
-        };
-        await handleAddBatch(newBatch);
-      }
-
-      addAuditLog('INVENTORY', 'CREATE', newDrug.id, newDrug);
-    } catch (error) {
-      console.error('Error adding inventory:', error);
-      alert('Failed to add inventory item.');
-    }
-  };
-
-  const handleUpdateInventory = async (id: string, updates: Partial<InventoryItem>) => {
-    try {
-      const drug = drugs.find(d => d.id === id);
-      if (!drug) return;
-
-      const updatedDrug = {
-        ...drug,
-        name: updates.name || drug.name,
-        min_level: updates.minLevel ?? drug.min_level,
-        max_level: updates.maxLevel ?? drug.max_level,
-        category: (updates.category as 'A' | 'B' | 'C') || drug.category
-      };
-
-      // Update in database (need to create updateItem function)
-      setDrugs(prev => prev.map(d => d.id === id ? updatedDrug : d));
-
-      addAuditLog('INVENTORY', 'UPDATE', id, updates);
-    } catch (error) {
-      console.error('Error updating inventory:', error);
-      alert('Failed to update inventory item.');
-    }
-  };
-
-  const handleDeleteInventory = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-
-    try {
-      // Delete from database (need to create deleteItem function)
-      setDrugs(prev => prev.filter(d => d.id !== id));
-      setBatches(prev => prev.filter(b => b.drug_id !== id));
-
-      addAuditLog('INVENTORY', 'DELETE', id, {});
-    } catch (error) {
-      console.error('Error deleting inventory:', error);
-      alert('Failed to delete inventory item.');
-    }
-  };
-
-  const handleReconcileInventory = async (id: string, physicalCount: number) => {
-    try {
-      // Find the most recent batch for this drug
-      const drugBatches = batches.filter(b => b.drug_id === id).sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      if (drugBatches.length === 0) {
-        alert('No batches found for this item.');
-        return;
-      }
-
-      const batch = drugBatches[0];
-      const difference = physicalCount - batch.current_units;
-
-      const adjustment: InventoryAdjustment = {
-        id: generateUUID(),
-        drug_batch_id: batch.id,
-        drug_id: id,
-        change_units: difference,
-        reason: 'Physical count reconciliation',
-        adjusted_by: currentUser?.id || '',
-        created_at: new Date().toISOString()
-      };
-
-      await handleReconcile([adjustment]);
-    } catch (error) {
-      console.error('Error reconciling inventory:', error);
-      alert('Failed to reconcile inventory.');
-    }
-  };
-
-  // ===== END INVENTORY CRUD HANDLERS =====
-
   const handleCreateDrug = async (drug: Drug) => {
     try {
       const created = await createItem(drug);
@@ -708,10 +593,10 @@ const App: React.FC = () => {
               prescriptions={prescriptions}
               inventory={inventorySummary}
               onUpdateStatus={handleLegacyUpdateStatus}
-              onAddInventory={handleAddInventory}
-              onUpdateInventory={handleUpdateInventory}
-              onDeleteInventory={handleDeleteInventory}
-              onReconcileInventory={handleReconcileInventory}
+              onAddInventory={() => alert("Please use Dispensary Module")}
+              onUpdateInventory={() => alert("Please use Dispensary Module")}
+              onDeleteInventory={() => alert("Please use Dispensary Module")}
+              onReconcileInventory={() => alert("Please use Dispensary Module")}
               onAddPrescription={handleAddPrescription}
             />
 
