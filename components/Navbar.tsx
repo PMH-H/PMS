@@ -19,7 +19,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
   };
 
   const handleSignOut = async () => {
-    const { error } = await import('../services/supabase').then(m => m.signOut());
+    const { supabase } = await import('../services/supabase');
+    const { error } = await supabase.auth.signOut();
     if (error) console.error('Error signing out:', error);
     window.location.reload();
   };
