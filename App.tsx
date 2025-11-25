@@ -675,7 +675,7 @@ const App: React.FC = () => {
         setBatches(mappedBatches);
       }
 
-      // Fetch alerts/notifications
+      // Fetch alerts/notifications and sales data
       // We need facilityId. For now, try to get it from current user profile if we can
       // But fetchInventoryData is called after setting currentUser, so we might not have facility_id in state yet
       // Let's fetch it again or assume we can get it.
@@ -683,6 +683,7 @@ const App: React.FC = () => {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('facility_id').eq('id', user.id).single();
         if (profile?.facility_id) {
+          // Load alerts
           const alerts = await getStockAlerts(profile.facility_id);
           if (alerts) {
             const mappedNotifications: Notification[] = alerts.map(a => ({
@@ -693,6 +694,26 @@ const App: React.FC = () => {
               type: a.type as any
             }));
             setNotifications(mappedNotifications);
+          }
+
+          // Load sales data
+          const { data: salesData } = await supabase
+            .from('sales')
+            .select('*')
+            .eq('facility_id', profile.facility_id)
+            .order('created_at', { ascending: false });
+
+          if (salesData) {
+            const mappedSales: Sale[] = salesData.map(s => ({
+              id: s.id,
+              items: s.items,
+              total_price: s.total_price,
+              sold_by_user_id: s.sold_by_user_id,
+              customerName: s.customer_info || 'Walk-in Customer',
+              timestamp: s.created_at,
+              created_at: s.created_at
+            }));
+            setSales(mappedSales);
           }
         }
       }
@@ -713,64 +734,79 @@ const App: React.FC = () => {
     }
   };
 
+  // ===== RENDER =====
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
 
   if (!currentUser) {
-    return <Login onLoginSuccess={() => { }} />; // onLoginSuccess handled by auth state listener
+    return <Login onLoginSuccess={() => { }} />; // Login handled by signIn function
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    window.location.reload();
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
-      <Navbar currentUser={currentUser} />
-
-      <main className="flex-grow w-full mx-auto">
-
-        {currentUser.role === UserRole.CUSTOMER && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <PatientDashboard
-              prescriptions={prescriptions}
-              inventory={drugs}
-              inventoryStock={batches}
-              onAddPrescription={p => setPrescriptions(prev => [p, ...prev])}
-              logAIAction={addAILog}
-              notifications={notifications}
-              onMarkNotificationAsRead={id => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
-              userPrivacy={currentUser.privacySettings}
-              onUpdatePrivacy={async (newSettings) => {
-                // Optimistic Update
-                setCurrentUser(prev => prev ? ({ ...prev, privacySettings: newSettings }) : null);
-
-                // Persist to Supabase
-                if (currentUser) {
-                  const { error } = await supabase
-                    .from('profiles')
-                    .update({ preferences: newSettings })
-                    .eq('id', currentUser.id);
-
-                  if (error) {
-                    console.error("Failed to save preferences:", error);
-                    // Revert on error (optional, but good practice)
-                    // fetchUserProfile(currentUser.id, currentUser.email || ''); 
-                  }
-                }
-              }}
-              onLogSearch={handleLogSearch}
-            />
+    <div className="min-h-screen bg-slate-50">
+      {/* Top Navigation Bar */}
+      <nav className="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-500 p-2 rounded-lg">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">PharmAI <span className="text-emerald-400">Pro</span></h1>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Intelligent Pharmacy OS</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-white">{currentUser.full_name}</p>
+                <p className="text-xs text-emerald-400 font-medium">{currentUser.role.replace('_', ' ')}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+                title="Logout"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
           </div>
+        </div>
+      </nav>
+
+      <main className="pb-20">
+        {currentUser.role === UserRole.CUSTOMER && (
+          <PatientDashboard
+            prescriptions={prescriptions}
+            inventory={drugs}
+            inventoryStock={batches}
+            onAddPrescription={handleAddPrescription}
+            logAIAction={(action, details, status) => addAuditLog('AI', action, 'AI_AGENT', { details, status })}
+            notifications={notifications}
+            onMarkNotificationAsRead={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
+            userPrivacy={currentUser.privacySettings}
+            onUpdatePrivacy={(settings) => setCurrentUser(prev => ({ ...prev!, privacySettings: settings }))}
+            onLogSearch={handleLogSearch}
+          />
         )}
 
         {currentUser.role === UserRole.PHARMACIST && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">Pharmacist Overview</h1>
-            </div>
-
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <PharmacistDashboard
               prescriptions={prescriptions}
               inventory={inventorySummary}
@@ -781,20 +817,11 @@ const App: React.FC = () => {
               onReconcileInventory={handleReconcileInventory}
               onAddPrescription={handleAddPrescription}
             />
-
-            <hr className="border-gray-300" />
-
-            <DispensaryDashboard
-              currentUser={currentUser}
-              drugs={drugs}
-              batches={batches}
-              sales={sales}
-              onProcessSale={handleProcessSale}
-              onCreateDrug={handleCreateDrug}
-              onUpdateDrug={handleUpdateInventory}
-              onDeleteDrug={handleDeleteInventory}
-              onAddBatch={handleAddBatch}
-              onReconcile={handleReconcile}
+            onCreateDrug={handleCreateDrug}
+            onUpdateDrug={handleUpdateInventory}
+            onDeleteDrug={handleDeleteInventory}
+            onAddBatch={handleAddBatch}
+            onReconcile={handleReconcile}
             />
           </div>
         )}

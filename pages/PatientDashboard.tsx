@@ -53,7 +53,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
     const unreadCount = notifications.filter(n => !n.read).length;
 
     // Helper: Stock Check
-    const getStock = (drugId: string) => inventoryStock.filter(b => b.drug_id === drugId).reduce((a, b) => a + b.current_units, 0);
+    const getStock = (drugId: string) => inventoryStock.filter(b => b.item_id === drugId).reduce((a, b) => a + b.current_quantity, 0);
 
     // Filtered Products
     const filteredInventory = useMemo(() => {
@@ -323,8 +323,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     return (
                         <div key={item.id} onClick={() => { setSelectedProduct(item); setShowProductModal(true); }} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between cursor-pointer active:scale-95 transition-transform">
                             <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
-                                {item.image_front ? (
-                                    <img src={item.image_front} alt={item.name} className="w-full h-full object-cover" />
+                                {item.image_front_url ? (
+                                    <img src={item.image_front_url} alt={item.name} className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-xs text-gray-400">No Image</span>
                                 )}
@@ -539,8 +539,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl h-[90vh] flex flex-col animate-in slide-in-from-bottom-10">
                         {/* Header Image */}
                         <div className="relative h-64 bg-gray-100 flex-shrink-0">
-                            {selectedProduct.image_front ? (
-                                <img src={selectedProduct.image_front} alt="" className="w-full h-full object-cover" />
+                            {selectedProduct.image_front_url ? (
+                                <img src={selectedProduct.image_front_url} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
                             )}
