@@ -1,32 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { PharmacyNode, MarketTrend, Prediction } from '../types';
-import { 
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend, ComposedChart, Area
 } from 'recharts';
 import { generateMarketReport } from '../services/geminiService';
+import { getAllFacilities, getRegionalAggregates, getCategoryTrends, FacilityMetrics } from '../services/bmsService';
 
-// --- MOCK DATA FOR BMS ---
-const MOCK_NODES: PharmacyNode[] = [
-    { id: 'p1', name: 'Lusaka Central Pharma', region: 'Lusaka', complianceScore: 98, dataSharingEnabled: true, lastAuditDate: '2023-10-20', status: 'ACTIVE' },
-    { id: 'p2', name: 'Kitwe Health Outlet', region: 'Copperbelt', complianceScore: 85, dataSharingEnabled: true, lastAuditDate: '2023-09-15', status: 'ACTIVE' },
-    { id: 'p3', name: 'Ndola Community Chemist', region: 'Copperbelt', complianceScore: 72, dataSharingEnabled: false, lastAuditDate: '2023-08-10', status: 'FLAGGED' },
-    { id: 'p4', name: 'Livingstone Meds', region: 'Southern', complianceScore: 92, dataSharingEnabled: true, lastAuditDate: '2023-10-01', status: 'ACTIVE' },
-    { id: 'p5', name: 'Chipata Dispensary', region: 'Eastern', complianceScore: 60, dataSharingEnabled: false, lastAuditDate: '2023-05-20', status: 'OFFLINE' },
-];
-
-const MOCK_TRENDS: MarketTrend[] = [
-    { id: 't1', category: 'Antibiotics', region: 'National', demandIndex: 85, supplyIndex: 60, avgPrice: 45.5, month: 'Jan' },
-    { id: 't2', category: 'Antibiotics', region: 'National', demandIndex: 88, supplyIndex: 55, avgPrice: 48.0, month: 'Feb' },
-    { id: 't3', category: 'Antibiotics', region: 'National', demandIndex: 92, supplyIndex: 50, avgPrice: 52.5, month: 'Mar' },
-    { id: 't4', category: 'Antibiotics', region: 'National', demandIndex: 75, supplyIndex: 70, avgPrice: 46.0, month: 'Apr' },
-    { id: 't5', category: 'Antimalarials', region: 'National', demandIndex: 40, supplyIndex: 90, avgPrice: 20.0, month: 'Jan' },
-    { id: 't6', category: 'Antimalarials', region: 'National', demandIndex: 45, supplyIndex: 85, avgPrice: 20.0, month: 'Feb' },
-    { id: 't7', category: 'Antimalarials', region: 'National', demandIndex: 60, supplyIndex: 80, avgPrice: 22.0, month: 'Mar' },
-    { id: 't8', category: 'Antimalarials', region: 'National', demandIndex: 80, supplyIndex: 70, avgPrice: 25.0, month: 'Apr' },
-];
-
+// --- MOCK DATA FOR PREDICTIONS (AI-generated, not facility-specific) ---
 const MOCK_PREDICTIONS: Prediction[] = [
     { id: 'pr1', type: 'DISEASE', title: 'Cholera Outbreak Risk', probability: 78, description: 'Increased rainfall in Lusaka compounds suggests high risk of waterborne diseases.', impactLevel: 'HIGH', targetDate: 'Nov 2023' },
     { id: 'pr2', type: 'DRUG_DEMAND', title: 'Antihistamine Shortage', probability: 65, description: 'Pollen season starting early in Southern province will spike demand by 40%.', impactLevel: 'MEDIUM', targetDate: 'Sep 2023' },
@@ -35,22 +17,57 @@ const MOCK_PREDICTIONS: Prediction[] = [
 
 const SuperAdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MARKET' | 'FORECAST' | 'GOVERNANCE'>('OVERVIEW');
-    const [aiSummary, setAiSummary] = useState<string>('Generating executive summary...');
-    const [nodes, setNodes] = useState<PharmacyNode[]>(MOCK_NODES);
+    const [aiSummary, setAiSummary] = useState<string>('Loading executive summary...');
+    const [facilities, setFacilities] = useState<FacilityMetrics[]>([]);
+    const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
+    const [loading, setLoading] = useState(true);
 
+    // Fetch real data on mount
     useEffect(() => {
-        const fetchReport = async () => {
-            const report = await generateMarketReport(MOCK_TRENDS, MOCK_PREDICTIONS);
-            setAiSummary(report);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+
+                // Fetch facilities
+                const facilitiesData = await getAllFacilities();
+                setFacilities(facilitiesData);
+
+                // Fetch category trends and convert to MarketTrend format
+                const trends = await getCategoryTrends(6);
+                const formattedTrends: MarketTrend[] = trends.map((t, i) => ({
+                    id: `t${i}`,
+                    category: t.category,
+                    region: 'National', // Aggregated nationally
+                    demandIndex: Math.min(100, t.totalSold), // Simplified
+                    supplyIndex: 100 - Math.min(100, t.totalSold), // Inverse for demo
+                    avgPrice: t.avgPrice,
+                    month: t.month
+                }));
+                setMarketTrends(formattedTrends);
+
+                // Generate AI summary
+                const report = await generateMarketReport(formattedTrends, MOCK_PREDICTIONS);
+                setAiSummary(report);
+
+            } catch (error) {
+                console.error('Error fetching BMS data:', error);
+                setAiSummary('Error loading data. Please refresh.');
+            } finally {
+                setLoading(false);
+            }
         };
-        fetchReport();
+
+        fetchData();
     }, []);
 
     const toggleDataSharing = (id: string) => {
-        setNodes(prev => prev.map(n => n.id === id ? { ...n, dataSharingEnabled: !n.dataSharingEnabled } : n));
+        setFacilities(prev => prev.map(f =>
+            f.id === id ? { ...f, dataSharingEnabled: !f.dataSharingEnabled } : f
+        ));
+        // TODO: Call updateFacilityDataSharing from bmsService
     };
 
-    const antibioticsData = MOCK_TRENDS.filter(t => t.category === 'Antibiotics');
+    const antibioticsData = marketTrends.filter(t => t.category === 'Antibiotics' || t.category === 'A');
 
     const renderOverview = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
@@ -74,7 +91,7 @@ const SuperAdminDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Active Nodes</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-2">{nodes.filter(n => n.status === 'ACTIVE').length}/{nodes.length}</p>
+                    <p className="text-3xl font-bold text-slate-900 mt-2">{facilities.filter(f => f.isActive).length}/{facilities.length}</p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Data Stream Vol</p>
@@ -83,7 +100,7 @@ const SuperAdminDashboard: React.FC = () => {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Avg Compliance</p>
                     <p className="text-3xl font-bold text-emerald-600 mt-2">
-                        {Math.round(nodes.reduce((a,b) => a+b.complianceScore, 0) / nodes.length)}%
+                        {facilities.length > 0 ? Math.round(facilities.reduce((a, b) => a + b.complianceScore, 0) / facilities.length) : 0}%
                     </p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -124,7 +141,7 @@ const SuperAdminDashboard: React.FC = () => {
                                 <YAxis />
                                 <Tooltip />
                                 <Legend />
-                                <Line type="monotone" dataKey="avgPrice" name="Avg Price" stroke="#8884d8" strokeWidth={3} dot={{r: 4}} />
+                                <Line type="monotone" dataKey="avgPrice" name="Avg Price" stroke="#8884d8" strokeWidth={3} dot={{ r: 4 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -168,7 +185,7 @@ const SuperAdminDashboard: React.FC = () => {
                     </div>
                 ))}
             </div>
-            
+
             <div className="bg-slate-900 text-white p-8 rounded-2xl flex flex-col md:flex-row items-center gap-8">
                 <div className="flex-1">
                     <h3 className="text-2xl font-bold mb-2">Monetize These Insights</h3>
@@ -186,7 +203,7 @@ const SuperAdminDashboard: React.FC = () => {
 
     const renderGovernance = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
-             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-slate-900 text-lg">Pharmacy Network Governance</h3>
                     <button className="text-sm text-indigo-600 font-bold hover:underline">Download Audit Log</button>
@@ -204,38 +221,36 @@ const SuperAdminDashboard: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {nodes.map(node => (
-                                <tr key={node.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-slate-900">{node.name}</td>
-                                    <td className="px-6 py-4 text-gray-500">{node.region}</td>
+                            {facilities.map(facility => (
+                                <tr key={facility.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 font-medium text-slate-900">{facility.name}</td>
+                                    <td className="px-6 py-4 text-gray-500">{facility.region}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                            node.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 
-                                            node.status === 'FLAGGED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-                                        }`}>
-                                            {node.status}
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${facility.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {facility.isActive ? 'ACTIVE' : 'INACTIVE'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
                                             <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                <div 
-                                                    className={`h-full rounded-full ${node.complianceScore > 90 ? 'bg-green-500' : node.complianceScore > 70 ? 'bg-yellow-500' : 'bg-red-500'}`} 
-                                                    style={{ width: `${node.complianceScore}%` }} 
+                                                <div
+                                                    className={`h-full rounded-full ${facility.complianceScore > 90 ? 'bg-green-500' : facility.complianceScore > 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                    style={{ width: `${facility.complianceScore}%` }}
                                                 />
                                             </div>
-                                            <span className="text-xs font-bold">{node.complianceScore}%</span>
+                                            <span className="text-xs font-bold">{facility.complianceScore}%</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <button 
-                                            onClick={() => toggleDataSharing(node.id)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${node.dataSharingEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                        <button
+                                            onClick={() => toggleDataSharing(facility.id)}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-200`}
                                         >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${node.dataSharingEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-1`} />
                                         </button>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-500">{node.lastAuditDate}</td>
+                                    <td className="px-6 py-4 text-gray-500">{facility.lastAuditDate || 'N/A'}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -251,15 +266,14 @@ const SuperAdminDashboard: React.FC = () => {
                 <div className="max-w-7xl mx-auto">
                     <h1 className="text-3xl font-bold mb-2">BMS Command Center</h1>
                     <p className="text-slate-400">National Health Strategy & Supply Chain Analytics</p>
-                    
+
                     <div className="flex gap-4 mt-6 overflow-x-auto pb-2 scrollbar-hide">
                         {['OVERVIEW', 'MARKET', 'FORECAST', 'GOVERNANCE'].map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
-                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                                    activeTab === tab ? 'bg-indigo-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                                }`}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab ? 'bg-indigo-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                    }`}
                             >
                                 {tab}
                             </button>

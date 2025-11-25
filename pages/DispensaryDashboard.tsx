@@ -246,7 +246,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     // --- INVENTORY HELPERS ---
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image_front' | 'image_back') => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'front_image_url' | 'back_image_url') => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
@@ -287,6 +287,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                 }));
             }
         }
+        setIsAnalyzing(false);
     };
 
     const submitDrug = async () => {
@@ -311,12 +312,13 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             sku: finalSku,
             name: drugForm.name,
             barcode: drugForm.barcode || `BAR-${generateUUID().substring(0, 12)}`,
-            image_front_url: drugForm.image_front,
-            image_back_url: drugForm.image_back,
+            front_image_url: drugForm.front_image_url,
+            back_image_url: drugForm.back_image_url,
             category: drugForm.category || 'B',
             unit: drugForm.unit || 'units',
             min_level: drugForm.min_level || 0,
             max_level: drugForm.max_level || 0,
+            price_cents: drugForm.price_cents || 0,
             created_at: new Date().toISOString()
         };
 
@@ -1178,8 +1180,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <div className="flex gap-4">
                                         <div className="w-1/2">
                                             <div className="relative aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden hover:bg-gray-50 transition-colors">
-                                                {drugForm.image_front ? (
-                                                    <img src={drugForm.image_front} alt="Front" className="w-full h-full object-cover" />
+                                                {drugForm.front_image_url ? (
+                                                    <img src={drugForm.front_image_url} alt="Front" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="text-center p-2 text-gray-400 pointer-events-none">
                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto mb-1">
@@ -1192,15 +1194,15 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                     type="file"
                                                     accept="image/*"
                                                     className="absolute inset-0 opacity-0 cursor-pointer"
-                                                    onChange={(e) => handleImageUpload(e, 'image_front')}
+                                                    onChange={(e) => handleImageUpload(e, 'front_image_url')}
                                                 />
                                             </div>
                                             <p className="text-[10px] text-gray-400 mt-1 text-center">Camera or Gallery</p>
                                         </div>
                                         <div className="w-1/2">
                                             <div className="relative aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden hover:bg-gray-50 transition-colors">
-                                                {drugForm.image_back ? (
-                                                    <img src={drugForm.image_back} alt="Back" className="w-full h-full object-cover" />
+                                                {drugForm.back_image_url ? (
+                                                    <img src={drugForm.back_image_url} alt="Back" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="text-center p-2 text-gray-400 pointer-events-none">
                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto mb-1">
@@ -1213,7 +1215,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                                     type="file"
                                                     accept="image/*"
                                                     className="absolute inset-0 opacity-0 cursor-pointer"
-                                                    onChange={(e) => handleImageUpload(e, 'image_back')}
+                                                    onChange={(e) => handleImageUpload(e, 'back_image_url')}
                                                 />
                                             </div>
                                             <p className="text-[10px] text-gray-400 mt-1 text-center">Camera or Gallery</p>
@@ -1221,8 +1223,8 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => handleAIAutoFill(drugForm.image_front || drugForm.image_back, 'DRUG')}
-                                        disabled={isAnalyzing || (!drugForm.image_front && !drugForm.image_back)}
+                                        onClick={() => handleAIAutoFill(drugForm.front_image_url || drugForm.back_image_url, 'DRUG')}
+                                        disabled={isAnalyzing || (!drugForm.front_image_url && !drugForm.back_image_url)}
                                         className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg text-sm font-bold shadow-sm hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 transition-all"
                                     >
                                         {isAnalyzing ? (
@@ -1276,13 +1278,22 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                                     <h5 className="text-sm font-bold text-emerald-800">New Batch Entry (Mandatory for Stock)</h5>
 
                                     <div className="flex gap-2">
-                                        <div className="w-1/2">
+                                        <div className="w-1/3">
                                             <label className="text-xs font-bold text-gray-500 uppercase">Quantity</label>
                                             <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" placeholder="Units" value={drugForm.initialStock || ''} onChange={e => setDrugForm({ ...drugForm, initialStock: parseInt(e.target.value) })} />
                                         </div>
-                                        <div className="w-1/2">
+                                        <div className="w-1/3">
                                             <label className="text-xs font-bold text-gray-500 uppercase">Cost (ZMW)</label>
                                             <input className="w-full border p-2 rounded bg-white text-gray-900" type="number" step="0.01" placeholder="0.00" value={drugForm.costPerUnit || ''} onChange={e => setDrugForm({ ...drugForm, costPerUnit: parseFloat(e.target.value) })} />
+                                        </div>
+                                        <div className="w-1/3">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Selling Price</label>
+                                            <input
+                                                className="w-full border p-2 rounded bg-white text-gray-900"
+                                                type="number" step="0.01" placeholder="0.00"
+                                                value={drugForm.price_cents ? (drugForm.price_cents / 100).toFixed(2) : ''}
+                                                onChange={e => setDrugForm({ ...drugForm, price_cents: Math.round(parseFloat(e.target.value) * 100) })}
+                                            />
                                         </div>
                                     </div>
 

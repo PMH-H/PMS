@@ -11,6 +11,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import DevDashboard from './pages/DevDashboard';
 import { checkSupabaseConnection, supabase, getCurrentUser } from './services/supabase';
 import { createItem, updateItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus } from './services/database';
+import { subscribeToFacilityUpdates } from './services/realtime';
 import { analyzePrescriptionImage, checkDrugInteractions } from './services/geminiService';
 import { generateUUID } from './utils/uuid';
 import {
@@ -107,6 +108,7 @@ const App: React.FC = () => {
   const [adjustments, setAdjustments] = useState<InventoryAdjustment[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
+  const [adminView, setAdminView] = useState<'BUSINESS' | 'POS' | 'PHARMACIST' | 'PATIENT'>('BUSINESS');
 
   // -- Derived State for Legacy Dashboard Compatibility --
   // This maps the new robust batch system to the simple InventoryItem list expected by the old dashboard
@@ -604,6 +606,108 @@ const App: React.FC = () => {
     initializeApp();
   }, []);
 
+  // Setup real-time subscriptions
+  useEffect(() => {
+    if (!currentUser?.facility_id) return;
+
+    const unsubscribe = subscribeToFacilityUpdates(currentUser.facility_id, {
+      onBatchChange: () => { }, // Using custom events instead
+      onSaleAdded: () => { },
+      onNotificationAdded: () => { }
+    });
+
+    // Subscribe to prescriptions
+    const rxChannel = supabase
+      .channel('prescriptions_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'prescriptions' },
+        (payload) => {
+          // Filter by facility for staff, or patient_id for customers
+          const newRx = payload.new;
+          if (
+            (currentUser?.role === UserRole.CUSTOMER && newRx.patient_id === currentUser.id) ||
+            (currentUser?.role !== UserRole.CUSTOMER && newRx.facility_id === currentUser?.facility_id)
+          ) {
+            // Dispatch event for UI updates
+            const event = new CustomEvent('rx-added', { detail: newRx });
+            window.dispatchEvent(event);
+          }
+        }
+      )
+      .subscribe();
+
+    // Listen to custom events from realtime service
+    const handleBatchChange = (e: any) => {
+      const { event, data } = e.detail;
+      if (event === 'INSERT') {
+        setBatches(prev => [{
+          id: data.id, item_id: data.item_id, facility_id: data.facility_id,
+          batch_no: data.batch_no, expiry_date: data.expiry_date, manufacture_date: data.manufacture_date,
+          received_quantity: data.received_quantity, current_quantity: data.current_quantity,
+          cost_per_unit: data.cost_per_unit, created_at: data.created_at
+        }, ...prev]);
+      } else if (event === 'UPDATE') {
+        setBatches(prev => prev.map(b => b.id === data.id ? { ...b, current_quantity: data.current_quantity } : b));
+      } else if (event === 'DELETE') {
+        setBatches(prev => prev.filter(b => b.id !== data.id));
+      }
+    };
+
+    const handleSaleAdded = (e: any) => {
+      const data = e.detail;
+      setSales(prev => [{
+        id: data.id, items: data.items, total_price: data.total_price,
+        sold_by_user_id: data.sold_by_user_id, timestamp: data.created_at, created_at: data.created_at
+      }, ...prev]);
+    };
+
+    const handleNotificationAdded = (e: any) => {
+      const data = e.detail;
+      setNotifications(prev => [{
+        id: data.id, message: data.title || data.description || 'New alert',
+        timestamp: data.created_at, read: false, type: data.alert_type || 'info'
+      }, ...prev]);
+    };
+
+    const handleRxAdded = (e: any) => {
+      const data = e.detail;
+      const mappedRx: Prescription = {
+        id: data.id,
+        patientName: 'New Patient',
+        date: new Date(data.created_at).toISOString().split('T')[0],
+        medications: data.medications || [],
+        status: data.status,
+        imageUrl: data.image_url,
+        interactions: data.interactions || []
+      };
+
+      setPrescriptions(prev => [mappedRx, ...prev]);
+
+      setNotifications(prev => [{
+        id: `notif-${Date.now()}`,
+        message: `New Prescription Received`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: 'info'
+      }, ...prev]);
+    };
+
+    window.addEventListener('batch-changed', handleBatchChange);
+    window.addEventListener('sale-added', handleSaleAdded);
+    window.addEventListener('notification-added', handleNotificationAdded);
+    window.addEventListener('rx-added', handleRxAdded);
+
+    return () => {
+      unsubscribe();
+      supabase.removeChannel(rxChannel);
+      window.removeEventListener('batch-changed', handleBatchChange);
+      window.removeEventListener('sale-added', handleSaleAdded);
+      window.removeEventListener('notification-added', handleNotificationAdded);
+      window.removeEventListener('rx-added', handleRxAdded);
+    };
+  }, [currentUser?.facility_id, currentUser?.role, currentUser?.id]);
+
   const fetchUserProfile = async (userId: string, email: string) => {
     try {
       const { data, error } = await supabase
@@ -647,19 +751,34 @@ const App: React.FC = () => {
 
   const fetchInventoryData = async () => {
     try {
-      // Fetch drugs
+      // Get current user's role and facility_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase.from('profiles').select('facility_id, role').eq('id', user.id).single();
+      const userRole = profile?.role as UserRole;
+      const facilityId = profile?.facility_id;
+
+      // Determine if user should see all data or only their facility
+      const isSuperAdmin = userRole === UserRole.SUPER_ADMIN_BMS || userRole === UserRole.SUPER_ADMIN_DEV;
+
+      // Fetch drugs (items are global, not facility-specific)
       const items = await getItems();
       setDrugs(items as Drug[] || []);
 
-      // Note: getBatches expects facilityId which we don't have yet
-      // For now, fetch from item_batches directly
-      const { data: batchData } = await supabase
+      // Fetch batches - filter by facility for non-super-admins
+      let batchQuery = supabase
         .from('item_batches')
         .select('*')
         .order('expiry_date');
 
+      if (!isSuperAdmin && facilityId) {
+        batchQuery = batchQuery.eq('facility_id', facilityId);
+      }
+
+      const { data: batchData } = await batchQuery;
+
       if (batchData) {
-        // Map database schema to our DrugBatch type
         const mappedBatches: DrugBatch[] = batchData.map(b => ({
           id: b.id,
           item_id: b.item_id,
@@ -675,52 +794,66 @@ const App: React.FC = () => {
         setBatches(mappedBatches);
       }
 
-      // Fetch alerts/notifications and sales data
-      // We need facilityId. For now, try to get it from current user profile if we can
-      // But fetchInventoryData is called after setting currentUser, so we might not have facility_id in state yet
-      // Let's fetch it again or assume we can get it.
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('facility_id').eq('id', user.id).single();
-        if (profile?.facility_id) {
-          // Load alerts
-          const alerts = await getStockAlerts(profile.facility_id);
-          if (alerts) {
-            const mappedNotifications: Notification[] = alerts.map(a => ({
-              id: a.id,
-              message: a.message,
-              timestamp: a.created_at,
-              read: a.is_read,
-              type: a.type as any
-            }));
-            setNotifications(mappedNotifications);
-          }
-
-          // Load sales data
-          const { data: salesData } = await supabase
-            .from('sales')
-            .select('*')
-            .eq('facility_id', profile.facility_id)
-            .order('created_at', { ascending: false });
-
-          if (salesData) {
-            const mappedSales: Sale[] = salesData.map(s => ({
-              id: s.id,
-              items: s.items,
-              total_price: s.total_price,
-              sold_by_user_id: s.sold_by_user_id,
-              customerName: s.customer_info || 'Walk-in Customer',
-              timestamp: s.created_at,
-              created_at: s.created_at
-            }));
-            setSales(mappedSales);
-          }
+      // Fetch alerts - always filter by facility if user has one
+      if (facilityId) {
+        const alerts = await getStockAlerts(facilityId);
+        if (alerts) {
+          const mappedNotifications: Notification[] = alerts.map(a => ({
+            id: a.id,
+            message: a.message,
+            timestamp: a.created_at,
+            read: a.is_read,
+            type: a.type as any
+          }));
+          setNotifications(mappedNotifications);
         }
+      }
+
+      // Fetch sales - filter by facility for non-super-admins
+      let salesQuery = supabase
+        .from('sales')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!isSuperAdmin && facilityId) {
+        salesQuery = salesQuery.eq('facility_id', facilityId);
+      }
+
+      const { data: salesData } = await salesQuery;
+
+      if (salesData) {
+        const mappedSales: Sale[] = salesData.map(s => ({
+          id: s.id,
+          items: s.items,
+          total_price: s.total_price,
+          sold_by_user_id: s.sold_by_user_id,
+          customer_info: s.customer_info,
+          created_at: s.created_at
+        }));
+        setSales(mappedSales);
+      }
+
+      // Fetch prescriptions (global for now - could be facility-filtered later)
+      const { data: rxData } = await supabase
+        .from('prescriptions')
+        .select('*, profiles:patient_id(full_name)')
+        .order('created_at', { ascending: false });
+
+      if (rxData) {
+        const mappedRx: Prescription[] = rxData.map(rx => ({
+          id: rx.id,
+          patientName: (rx.profiles as any)?.full_name || 'Unknown Patient',
+          date: rx.created_at.split('T')[0],
+          medications: rx.medications,
+          status: rx.status as PrescriptionStatus,
+          imageUrl: rx.image_url,
+          interactions: rx.interactions
+        }));
+        setPrescriptions(mappedRx);
       }
 
     } catch (error) {
       console.error("Error fetching inventory:", error);
-      // Keep empty arrays if fetch fails
     }
   };
 
@@ -817,36 +950,84 @@ const App: React.FC = () => {
               onReconcileInventory={handleReconcileInventory}
               onAddPrescription={handleAddPrescription}
             />
-            onCreateDrug={handleCreateDrug}
-            onUpdateDrug={handleUpdateInventory}
-            onDeleteDrug={handleDeleteInventory}
-            onAddBatch={handleAddBatch}
-            onReconcile={handleReconcile}
-            />
           </div>
         )}
 
         {currentUser.role === UserRole.ADMIN && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-            <DispensaryDashboard
-              currentUser={currentUser}
-              drugs={drugs}
-              batches={batches}
-              sales={sales}
-              onProcessSale={handleProcessSale}
-              onCreateDrug={handleCreateDrug}
-              onAddBatch={handleAddBatch}
-              onReconcile={handleReconcile}
-            />
-            <AdminDashboard
-              logs={aiLogs}
-              users={[]} // TODO: Fetch real users
-              sales={sales}
-              auditLogs={auditLogs}
-              inventory={drugs}
-              batches={batches}
-              searchLogs={searchLogs}
-            />
+            {/* Admin Dashboard Switcher */}
+            <div className="flex justify-center mb-8">
+              <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 inline-flex">
+                {(['BUSINESS', 'POS', 'PHARMACIST', 'PATIENT'] as const).map(view => (
+                  <button
+                    key={view}
+                    onClick={() => setAdminView(view)}
+                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${adminView === view ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                    {view === 'BUSINESS' ? 'Business Dashboard' :
+                      view === 'POS' ? 'Dispensary POS' :
+                        view === 'PHARMACIST' ? 'Pharmacist View' : 'Patient View'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {adminView === 'BUSINESS' && (
+              <AdminDashboard
+                logs={aiLogs}
+                users={[]}
+                sales={sales}
+                auditLogs={auditLogs}
+                inventory={drugs}
+                batches={batches}
+                searchLogs={searchLogs}
+              />
+            )}
+
+            {adminView === 'POS' && (
+              <DispensaryDashboard
+                currentUser={currentUser}
+                drugs={drugs}
+                batches={batches}
+                sales={sales}
+                onProcessSale={handleProcessSale}
+                onCreateDrug={handleCreateDrug}
+                onAddBatch={handleAddBatch}
+                onReconcile={handleReconcile}
+              />
+            )}
+
+            {adminView === 'PHARMACIST' && (
+              <PharmacistDashboard
+                prescriptions={prescriptions}
+                inventory={inventorySummary}
+                onUpdateStatus={handleLegacyUpdateStatus}
+                onAddInventory={handleAddInventory}
+                onUpdateInventory={handleUpdateInventory}
+                onDeleteInventory={handleDeleteInventory}
+                onReconcileInventory={handleReconcileInventory}
+                onAddPrescription={handleAddPrescription}
+              />
+            )}
+
+            {adminView === 'PATIENT' && (
+              <div className="border-4 border-dashed border-slate-200 rounded-3xl p-4">
+                <div className="mb-4 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">Patient View Preview</div>
+                <PatientDashboard
+                  prescriptions={prescriptions}
+                  inventory={drugs}
+                  inventoryStock={batches}
+                  onAddPrescription={handleAddPrescription}
+                  logAIAction={(action, details, status) => addAuditLog('AI', action, 'AI_AGENT', { details, status })}
+                  notifications={notifications}
+                  onMarkNotificationAsRead={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
+                  userPrivacy={currentUser.privacySettings}
+                  onUpdatePrivacy={(settings) => setCurrentUser(prev => ({ ...prev!, privacySettings: settings }))}
+                  onLogSearch={handleLogSearch}
+                />
+              </div>
+            )}
           </div>
         )}
 

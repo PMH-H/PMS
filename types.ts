@@ -70,8 +70,8 @@ export interface Drug {
   strength?: string;
   unit: string; // Matches DB column (renamed from default_unit)
   barcode?: string;
-  image_front_url?: string; // Added _url suffix to match DB
-  image_back_url?: string; // Added _url suffix to match DB
+  front_image_url?: string; // Matches DB column
+  back_image_url?: string; // Matches DB column
   category: 'A' | 'B' | 'C';
   ven_class?: 'V' | 'E' | 'N';
   min_level: number;
@@ -80,7 +80,8 @@ export interface Drug {
   reorder_formula?: 'MIN_MAX' | 'LEAD_TIME' | 'CONSUMPTION' | 'EOQ' | 'EMERGENCY';
   lead_time_days?: number;
   created_at: string;
-  price_estimate?: number;
+  price_cents?: number; // Added to match DB
+  price_estimate?: number; // Deprecated, use price_cents / 100
   // Enhanced Medical Info for Customer UI
   active_ingredients?: string[];
   side_effects?: string[];

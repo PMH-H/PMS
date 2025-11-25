@@ -3,6 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Medication, Prescription, PrescriptionStatus, InteractionLevel, Notification, Drug, DrugBatch, PrivacySettings } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
+import { supabase } from '../services/supabase';
 
 interface PatientDashboardProps {
     prescriptions: Prescription[];
@@ -30,9 +31,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
     onLogSearch
 }) => {
     // -- Navigation & UI State --
-    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE'>('HOME');
+    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS'>('HOME');
     const [showProductModal, setShowProductModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Drug | null>(null);
+    const [showMessaging, setShowMessaging] = useState(false);
+
+    // -- News State --
+    const [newsItems, setNewsItems] = useState([
+        { id: 'n1', title: 'Seasonal Flu Alert', snippet: 'Cases rising in Lusaka. Get your vaccine today.', image: 'https://images.unsplash.com/photo-1584036561566-b93a50208c3c?auto=format&fit=crop&w=500&q=60', date: '2h ago' },
+        { id: 'n2', title: 'New Malaria Guidelines', snippet: 'Ministry of Health updates treatment protocols.', image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=500&q=60', date: '1d ago' },
+        { id: 'n3', title: 'Wellness Tips', snippet: '5 ways to boost your immunity this winter.', image: 'https://images.unsplash.com/photo-1511688878353-3a2f5be94cd7?auto=format&fit=crop&w=500&q=60', date: '2d ago' }
+    ]);
 
     // -- Prescription Upload State --
     const [isUploading, setIsUploading] = useState(false);
@@ -147,6 +156,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                         id: 'HOME', icon: (
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                         ), label: 'Home'
+                    },
+                    {
+                        id: 'NEWS', icon: (
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
+                        ), label: 'News'
                     },
                     {
                         id: 'SHOP', icon: (
@@ -317,12 +331,12 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 {filteredInventory.map(item => {
                     const stock = getStock(item.id);
                     return (
-                        <div key={item.id} onClick={() => { setSelectedProduct(item); setShowProductModal(true); }} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between cursor-pointer active:scale-95 transition-transform">
-                            <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+                        <div key={item.id} onClick={() => { setSelectedProduct(item); setShowProductModal(true); }} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col justify-between cursor-pointer active:scale-95 transition-transform">
+                            <div className="relative aspect-[4/3] mb-2 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center">
                                 {item.image_front_url ? (
                                     <img src={item.image_front_url} alt={item.name} className="w-full h-full object-cover" />
                                 ) : (
@@ -330,17 +344,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                                 )}
                                 {stock <= 0 && (
                                     <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                                        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">OUT OF STOCK</span>
+                                        <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">OUT OF STOCK</span>
                                     </div>
                                 )}
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900 text-sm leading-tight mb-1">{item.name}</h3>
-                                <p className="text-xs text-slate-500 mb-2">{item.generic_name || item.common_uses?.[0]}</p>
+                                <h3 className="font-bold text-slate-900 text-xs leading-tight mb-0.5 line-clamp-2">{item.name}</h3>
+                                <p className="text-[10px] text-slate-500 mb-1.5 line-clamp-1">{item.generic_name || item.common_uses?.[0]}</p>
                                 <div className="flex justify-between items-center">
-                                    <span className="font-bold text-slate-900">ZMW {item.price_estimate?.toFixed(2)}</span>
-                                    <button className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-slate-900">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                                    <span className="font-bold text-slate-900 text-sm">ZMW {item.price_estimate?.toFixed(2)}</span>
+                                    <button className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-slate-900">
+                                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
                                     </button>
                                 </div>
                             </div>
@@ -510,9 +524,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                 <h3 className="font-bold text-lg text-slate-900 mb-2">Account</h3>
                 <button
                     onClick={async () => {
-                        const { signOut } = await import('../services/supabase');
-                        const { error } = await signOut();
-                        if (error) console.error('Error signing out:', error);
+                        await supabase.auth.signOut();
                         window.location.reload();
                     }}
                     className="w-full text-left py-3 text-red-600 font-medium text-sm hover:bg-red-50 rounded-lg transition-colors"
@@ -523,10 +535,47 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
         </div>
     );
 
+    const renderNews = () => (
+        <div className="p-4 space-y-6 pb-24 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Health News</h2>
+                    <p className="text-slate-500 text-sm">Updates from Ministry of Health & WHO</p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {newsItems.map(item => (
+                    <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-pointer">
+                        <div className="h-48 overflow-hidden relative">
+                            <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-800 shadow-sm">
+                                {item.date}
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            <h3 className="font-bold text-lg text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors">{item.title}</h3>
+                            <p className="text-slate-500 text-sm leading-relaxed mb-4">{item.snippet}</p>
+                            <button className="text-indigo-600 text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                                Read Full Article
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     return (
         <div className="pb-10">
             {/* Main View Switcher */}
             {activeTab === 'HOME' && renderHome()}
+            {activeTab === 'NEWS' && renderNews()}
             {activeTab === 'SHOP' && renderShop()}
             {activeTab === 'ASSISTANT' && renderAssistant()}
             {activeTab === 'PROFILE' && renderProfile()}
@@ -594,8 +643,71 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                         <div className="p-4 border-t border-gray-100 bg-white pb-safe">
                             <button className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 flex justify-between px-6 items-center">
                                 <span>Add to Cart</span>
-                                <span>ZMW {selectedProduct.price_estimate?.toFixed(2)}</span>
+                                <span>ZMW {((selectedProduct.price_cents || 0) / 100).toFixed(2)}</span>
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Messaging FAB */}
+            <button
+                onClick={() => setShowMessaging(true)}
+                className="fixed bottom-20 right-4 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 transition-all z-30 animate-in zoom-in"
+            >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+            </button>
+
+            {/* Messaging Modal */}
+            {showMessaging && (
+                <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]">
+                        {/* Header */}
+                        <div className="bg-indigo-600 p-4 flex justify-between items-center text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Pharmacy Support</h3>
+                                    <p className="text-xs text-indigo-100 flex items-center gap-1">
+                                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Online
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowMessaging(false)} className="p-2 hover:bg-white/10 rounded-full">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Messages Area */}
+                        <div className="flex-grow bg-gray-50 p-4 overflow-y-auto space-y-4">
+                            <div className="flex justify-start">
+                                <div className="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] border border-gray-100">
+                                    <p className="text-sm text-gray-800">Hello! How can we help you today?</p>
+                                    <span className="text-[10px] text-gray-400 mt-1 block">10:00 AM</span>
+                                </div>
+                            </div>
+                            {/* Placeholder for user messages */}
+                            <div className="flex justify-center py-4">
+                                <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Today</span>
+                            </div>
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="p-4 bg-white border-t border-gray-100">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Type your message..."
+                                    className="flex-1 bg-gray-100 border-0 rounded-full px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition-all"
+                                />
+                                <button className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 shadow-md transition-transform active:scale-95">
+                                    <svg className="w-5 h-5 translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
