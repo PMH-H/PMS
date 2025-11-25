@@ -1,6 +1,6 @@
 -- =====================================================
 -- PRESCRIPTION DETAILS, HISTORY & AI ANALYTICS
--- Migration: 011_rx_details_and_analytics.sql
+-- Migration: 011_rx_details_and_analytics.sql (FIXED)
 -- Purpose: Enable detailed prescription tracking, history, and AI learning
 -- Retention: Default 1 month (configurable by admins)
 -- =====================================================
@@ -172,14 +172,20 @@ ALTER TABLE prescription_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_prediction_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE data_retention_settings ENABLE ROW LEVEL SECURITY;
 
--- prescription_history policies
+-- prescription_history policies (FIXED - removed facility_id references)
 CREATE POLICY "Users view own prescription history"
 ON prescription_history FOR SELECT
 USING (
     prescription_id IN (
         SELECT id FROM prescriptions 
-        WHERE patient_id = auth.uid() 
-        OR facility_id IN (SELECT facility_id FROM profiles WHERE id = auth.uid())
+        WHERE patient_id = auth.uid()
+    )
+    OR
+    -- Staff can view all prescriptions at their facility
+    EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() 
+        AND role IN ('PHARMACIST', 'ADMIN', 'SUPER_ADMIN_BMS', 'SUPER_ADMIN_DEV')
     )
 );
 
@@ -193,27 +199,34 @@ WITH CHECK (
     )
 );
 
--- prescription_notes policies
+-- prescription_notes policies (FIXED - removed facility_id references)
 CREATE POLICY "Users view prescription notes"
 ON prescription_notes FOR SELECT
 USING (
     prescription_id IN (
         SELECT id FROM prescriptions 
-        WHERE patient_id = auth.uid() 
-        OR facility_id IN (SELECT facility_id FROM profiles WHERE id = auth.uid())
+        WHERE patient_id = auth.uid()
+    )
+    OR
+    -- Staff can view all notes
+    EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() 
+        AND role IN ('PHARMACIST', 'ADMIN', 'SUPER_ADMIN_BMS', 'SUPER_ADMIN_DEV')
     )
 );
 
 CREATE POLICY "Staff add prescription notes"
 ON prescription_notes FOR INSERT
 WITH CHECK (
+    -- Staff can add notes
     EXISTS (
-        SELECT 1 FROM prescriptions p
-        JOIN profiles prof ON prof.facility_id = p.facility_id
-        WHERE p.id = prescription_id AND prof.id = auth.uid()
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() 
+        AND role IN ('PHARMACIST', 'ADMIN', 'SUPER_ADMIN_BMS', 'SUPER_ADMIN_DEV')
     )
     OR
-    -- Patients can add clarification notes
+    -- Patients can add clarification notes to their own prescriptions
     (note_type = 'PATIENT' AND EXISTS (
         SELECT 1 FROM prescriptions WHERE id = prescription_id AND patient_id = auth.uid()
     ))
@@ -255,10 +268,10 @@ USING (
 CREATE OR REPLACE FUNCTION notify_admins_retention_change()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Insert alert for admins when retention settings change
+    -- Insert alert for all facilities (since prescriptions don't have facility_id)
     INSERT INTO alerts (facility_id, type, message, metadata)
     SELECT 
-        facility_id,
+        id as facility_id,
         'SYSTEM_CONFIG',
         'Data retention settings updated: ' || NEW.setting_key || ' = ' || NEW.setting_value || ' days',
         jsonb_build_object(
@@ -268,7 +281,7 @@ BEGIN
             'updated_by', NEW.updated_by
         )
     FROM facilities
-    WHERE type = 'DISTRICT' OR type = 'REGION';
+    WHERE type IN ('DISTRICT', 'REGION');
     
     RETURN NEW;
 END;
