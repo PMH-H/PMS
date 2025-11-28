@@ -419,7 +419,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             {/* Camera Scanner Overlay */}
             {isScanning && (
                 <BarcodeScanner
-                    onDetected={processScanCode}
+                    onScan={processScanCode}
                     onClose={() => setIsScanning(false)}
                 />
             )}

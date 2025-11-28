@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { chatWithAssistant } from '../services/geminiService';
+import { supabase } from '../services/supabase';
 import { UserRole } from '../types';
 
 interface ChatAssistantProps {
@@ -27,9 +27,16 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ role }) => {
         setInput('');
         setLoading(true);
 
-        const response = await chatWithAssistant(userMsg, role);
+        const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+            body: { action: 'chat', payload: { message: userMsg, role } },
+        });
+
+        if (error) {
+            setMessages(prev => [...prev, { sender: 'ai', text: 'Sorry, I am having trouble connecting right now.' }]);
+        } else {
+            setMessages(prev => [...prev, { sender: 'ai', text: data.response }]);
+        }
         
-        setMessages(prev => [...prev, { sender: 'ai', text: response }]);
         setLoading(false);
     };
 
