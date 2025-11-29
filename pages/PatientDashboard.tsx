@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import ArticleViewer from '../components/ArticleViewer';
 import { Medication, Prescription, PrescriptionStatus, InteractionLevel, Notification, Drug, DrugBatch, PrivacySettings } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
@@ -38,10 +39,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
 
     // -- News State --
     const [newsItems, setNewsItems] = useState([
-        { id: 'n1', title: 'Seasonal Flu Alert', snippet: 'Cases rising in Lusaka. Get your vaccine today.', image: 'https://images.unsplash.com/photo-1584036561566-b93a50208c3c?auto=format&fit=crop&w=500&q=60', date: '2h ago' },
-        { id: 'n2', title: 'New Malaria Guidelines', snippet: 'Ministry of Health updates treatment protocols.', image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=500&q=60', date: '1d ago' },
-        { id: 'n3', title: 'Wellness Tips', snippet: '5 ways to boost your immunity this winter.', image: 'https://images.unsplash.com/photo-1511688878353-3a2f5be94cd7?auto=format&fit=crop&w=500&q=60', date: '2d ago' }
+        { id: 'n1', title: 'Seasonal Flu Alert', content: 'Cases of seasonal flu are rising in Lusaka. It is recommended to get your vaccine as soon as possible. Symptoms include fever, cough, and fatigue. Stay hydrated and rest.', snippet: 'Cases rising in Lusaka. Get your vaccine today.', image: 'https://images.unsplash.com/photo-1584036561566-b93a50208c3c?auto=format&fit=crop&w=500&q=60', date: '2h ago', author: 'Ministry of Health' },
+        { id: 'n2', title: 'New Malaria Guidelines', content: 'The Ministry of Health has updated the treatment protocols for Malaria. New dosage instructions for Artemether-Lumefantrine are now in effect. Please consult your pharmacist for details.', snippet: 'Ministry of Health updates treatment protocols.', image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=500&q=60', date: '1d ago', author: 'Dr. M. Phiri' },
+        { id: 'n3', title: 'Wellness Tips', content: 'Boost your immunity this winter with these 5 tips: 1. Eat Vitamin C rich foods. 2. Exercise regularly. 3. Get enough sleep. 4. Manage stress. 5. Stay hydrated.', snippet: '5 ways to boost your immunity this winter.', image: 'https://images.unsplash.com/photo-1511688878353-3a2f5be94cd7?auto=format&fit=crop&w=500&q=60', date: '2d ago', author: 'Wellness Weekly' }
     ]);
+    const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
     // -- Prescription Upload State --
     const [isUploading, setIsUploading] = useState(false);
@@ -546,7 +548,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
 
             <div className="space-y-4">
                 {newsItems.map(item => (
-                    <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-pointer">
+                    <div key={item.id} onClick={() => setSelectedArticle(item)} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-pointer">
                         <div className="h-48 overflow-hidden relative">
                             <img
                                 src={item.image}
@@ -579,6 +581,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
             {activeTab === 'SHOP' && renderShop()}
             {activeTab === 'ASSISTANT' && renderAssistant()}
             {activeTab === 'PROFILE' && renderProfile()}
+
+            {selectedArticle && (
+                <ArticleViewer article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+            )}
 
             <BottomNav />
 

@@ -5,7 +5,7 @@ ALTER TABLE items ADD COLUMN IF NOT EXISTS price_cents INTEGER NOT NULL DEFAULT 
 
 -- 2. Create Health News Table
 CREATE TABLE IF NOT EXISTS health_news (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   image_url TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS health_news (
 
 -- 3. Create Messages Table (In-app messaging)
 CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID REFERENCES auth.users(id) NOT NULL,
   receiver_id UUID REFERENCES auth.users(id), -- Can be null if sending to a facility generally
   facility_id UUID REFERENCES facilities(id), -- Target facility

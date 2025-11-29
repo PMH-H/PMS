@@ -413,6 +413,20 @@ export const createAuditLog = async (log: Partial<AuditLog>) => {
     return data;
 };
 
+export const createSearchLog = async (log: Partial<SearchLog>) => {
+    const { data, error } = await supabase
+        .from('search_logs')
+        .insert([log])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating search log:', error);
+        return null;
+    }
+    return data;
+};
+
 // =====================================================
 // PURCHASE ORDERS
 // =====================================================

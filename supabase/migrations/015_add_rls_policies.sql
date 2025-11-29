@@ -8,12 +8,14 @@ ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 
 -- 2. Add RLS policies for the sales table
 -- =====================================================
+DROP POLICY IF EXISTS "Shop members can view their own facility sales" ON sales;
 CREATE POLICY "Shop members can view their own facility sales"
 ON sales FOR SELECT
 USING (
   is_shop_member(auth.uid(), facility_id)
 );
 
+DROP POLICY IF EXISTS "Shop members can insert sales for their own facility" ON sales;
 CREATE POLICY "Shop members can insert sales for their own facility"
 ON sales FOR INSERT
 WITH CHECK (
@@ -22,7 +24,9 @@ WITH CHECK (
 
 -- 3. Refine RLS policies for the metric_events table
 -- =====================================================
-DROP POLICY "Admins can view all metric events" ON metric_events;
+DROP POLICY IF EXISTS "Admins can view all metric events" ON metric_events;
+DROP POLICY IF EXISTS "Users can insert their own metric events" ON metric_events;
+
 CREATE POLICY "Admins and Super Admins can view all metric events"
 ON metric_events FOR SELECT
 USING (

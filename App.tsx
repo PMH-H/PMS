@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import ChatAssistant from './components/ChatAssistant';
 import Login from './components/Login';
+import ProfileSetup from './components/ProfileSetup';
 import PatientDashboard from './pages/PatientDashboard';
 import PharmacistDashboard from './pages/PharmacistDashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -10,7 +11,7 @@ import DispensaryDashboard from './pages/DispensaryDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import DevDashboard from './pages/DevDashboard';
 import { checkSupabaseConnection, supabase, getCurrentUser } from './services/supabase';
-import { createItem, updateItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus } from './services/database';
+import { createItem, updateItem, addBatch as createBatch, getItems, getBatches, processSale, submitCycleCountResult, createAuditLog, createAlert, getStockAlerts, createPrescription, getPrescriptions, updatePrescriptionStatus, createSearchLog } from './services/database';
 import { subscribeToFacilityUpdates } from './services/realtime';
 import { analyzePrescriptionImage, checkDrugInteractions } from './services/geminiService';
 import { generateUUID } from './utils/uuid';
@@ -86,15 +87,14 @@ const getFutureDate = (days: number) => {
 // Note: INITIAL_BATCHES are not used directly anymore since batches require facility_id
 // They are kept here for reference only
 const INITIAL_BATCHES_REFERENCE: any[] = [
-  { id: 'b1', item_id: 'd1', batch_no: 'B001', expiry_date: getFutureDate(365), received_quantity: 500, current_quantity: 500, cost_per_unit: 0.15, created_at: new Date().toISOString() },
-  { id: 'b2', item_id: 'd2', batch_no: 'B002', expiry_date: getFutureDate(15), received_quantity: 200, current_quantity: 120, cost_per_unit: 1.20, created_at: new Date().toISOString() },
-  { id: 'b3', item_id: 'd3', batch_no: 'B003', expiry_date: getFutureDate(200), received_quantity: 1000, current_quantity: 800, cost_per_unit: 0.05, created_at: new Date().toISOString() },
   { id: 'b4', item_id: 'd1', batch_no: 'B001-OLD', expiry_date: getFutureDate(30), received_quantity: 100, current_quantity: 50, cost_per_unit: 0.14, created_at: new Date().toISOString() },
 ];
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [pendingUserData, setPendingUserData] = useState<{ userId: string; email: string } | null>(null);
 
   // -- Legacy State (Prescriptions) --
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -245,13 +245,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogSearch = (term: string, category: 'PRODUCT' | 'SYMPTOM') => {
-    setSearchLogs(prev => [...prev, {
+  const handleLogSearch = async (term: string, category: 'PRODUCT' | 'SYMPTOM') => {
+    const newLog = {
       id: generateUUID(),
       term,
       category,
       timestamp: new Date().toISOString()
-    }]);
+    };
+
+    setSearchLogs(prev => [...prev, newLog]);
+
+    // Persist to DB
+    await createSearchLog(newLog);
   };
 
   // ===== INVENTORY CRUD HANDLERS =====
@@ -503,17 +508,13 @@ const App: React.FC = () => {
       // But database.ts has updateBatchQuantity.
 
       for (const adj of adjustmentsInput) {
-        const { error } = await supabase
-          .from('item_batches')
-          .update({ current_quantity: supabase.rpc('increment', { x: adj.quantity_change }) }) // This is tricky without current value
-        // Better: Fetch, calc, update.
-        // Or just use the value passed if it's absolute.
-        // The adjustment has 'quantity_change' (delta).
-
-        // Let's fetch the batch first
+        // Fetch current quantity first
         const { data: batch } = await supabase.from('item_batches').select('current_quantity').eq('id', adj.batch_id).single();
+
         if (batch) {
           const newQty = batch.current_quantity + adj.quantity_change;
+
+          // Update batch quantity
           await supabase.from('item_batches').update({ current_quantity: newQty }).eq('id', adj.batch_id);
 
           // Record movement
@@ -710,40 +711,52 @@ const App: React.FC = () => {
 
   const fetchUserProfile = async (userId: string, email: string) => {
     try {
+      console.log("App Version: 1.2 - Fetching Profile");
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .limit(1);
 
       if (error) {
         console.error("Error fetching profile:", error);
-        // Fallback or handle error (maybe user has no profile yet)
         setLoading(false);
         return;
       }
 
-      if (data) {
-        setCurrentUser({
-          id: data.id,
-          full_name: data.full_name || email.split('@')[0],
-          role: data.role as UserRole,
-          facility_id: data.facility_id,
-          // Load preferences from DB or use defaults
-          privacySettings: data.preferences || {
-            shareBrowsing: true,
-            sharePurchaseHistory: true,
-            allowAI: true,
-            anonymousMode: false,
-            allowCamera: false
-          }
-        });
+      console.log("Profile query result:", { data, dataLength: data?.length, userId });
+      const profileData: any = data?.[0];
 
-        // Fetch inventory data
-        await fetchInventoryData();
+      if (!profileData) {
+        // Handle the case where no profile was found
+        console.warn("No profile found for user:", userId, email);
+        setPendingUserData({ userId, email });
+        setShowProfileSetup(true);
+        setLoading(false);
+        return;
       }
+
+      // If profileData is not null, then a profile was found
+      setCurrentUser({
+        id: profileData.id,
+        full_name: profileData.full_name || email.split('@')[0],
+        role: profileData.role as UserRole,
+        facility_id: profileData.facility_id,
+        // Load preferences from DB or use defaults
+        privacySettings: profileData.preferences || {
+          shareBrowsing: true,
+          sharePurchaseHistory: true,
+          allowAI: true,
+          anonymousMode: false,
+          allowCamera: false
+        }
+      });
+
+      // Fetch inventory data
+      await fetchInventoryData();
     } catch (err) {
       console.error("Unexpected error fetching profile:", err);
+      alert("An unexpected error occurred. Please try logging in again.");
     } finally {
       setLoading(false);
     }
@@ -833,11 +846,17 @@ const App: React.FC = () => {
         setSales(mappedSales);
       }
 
-      // Fetch prescriptions (global for now - could be facility-filtered later)
-      const { data: rxData } = await supabase
+      // Fetch prescriptions (filter by patient_id for customers)
+      let rxQuery = supabase
         .from('prescriptions')
         .select('*, profiles:patient_id(full_name)')
         .order('created_at', { ascending: false });
+
+      if (userRole === UserRole.CUSTOMER) {
+        rxQuery = rxQuery.eq('patient_id', user.id);
+      }
+
+      const { data: rxData } = await rxQuery;
 
       if (rxData) {
         const mappedRx: Prescription[] = rxData.map(rx => ({
@@ -877,6 +896,15 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
+    if (showProfileSetup && pendingUserData) {
+      return (
+        <ProfileSetup
+          userId={pendingUserData.userId}
+          email={pendingUserData.email}
+          onProfileCreated={() => window.location.reload()}
+        />
+      );
+    }
     return <Login onLoginSuccess={() => { }} />; // Login handled by signIn function
   }
 

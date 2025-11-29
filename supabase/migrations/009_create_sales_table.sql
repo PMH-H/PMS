@@ -21,7 +21,8 @@ CREATE INDEX IF NOT EXISTS idx_sales_facility ON public.sales(facility_id);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON public.sales(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sales_user ON public.sales(sold_by_user_id);
 
--- Add trigger for updated_at
+-- Trigger to update updated_at timestamp
+DROP TRIGGER IF EXISTS update_sales_updated_at ON public.sales;
 CREATE TRIGGER update_sales_updated_at 
     BEFORE UPDATE ON public.sales
     FOR EACH ROW 
@@ -31,6 +32,7 @@ CREATE TRIGGER update_sales_updated_at
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 
 -- Allow users to insert sales at their facility
+DROP POLICY IF EXISTS "Users can insert sales at their facility" ON public.sales;
 CREATE POLICY "Users can insert sales at their facility"
     ON public.sales
     FOR INSERT
@@ -42,6 +44,7 @@ CREATE POLICY "Users can insert sales at their facility"
     );
 
 -- Allow users to view sales at their facility
+DROP POLICY IF EXISTS "Users can view sales at their facility" ON public.sales;
 CREATE POLICY "Users can view sales at their facility"
     ON public.sales
     FOR SELECT
