@@ -8,7 +8,7 @@ BEGIN
   INSERT INTO profiles (id, role, full_name)
   VALUES (
     NEW.id,
-    'CUSTOMER',
+    'customer',
     COALESCE(NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1))
   );
   RETURN NEW;
@@ -20,7 +20,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 INSERT INTO profiles (id, role, full_name)
 VALUES (
   'f4d67f41-3b55-4c2d-b7ed-9d80fda4e514',
-  'CUSTOMER',
+  'customer',
   'Mambwe Mwila'
 )
 ON CONFLICT (id) DO UPDATE

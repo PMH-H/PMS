@@ -1,12 +1,15 @@
 
 import React, { useMemo, useState } from 'react';
 import { AILog, User, Sale, AuditLog, Drug, DrugBatch, SearchLog } from '../types';
+import ProfileSettings from './ProfileSettings';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
 
 interface AdminDashboardProps {
+    currentUser?: User;
+    onUpdateUser?: (user: User) => void;
     logs: AILog[];
     users: User[];
     sales: Sale[];
@@ -17,9 +20,9 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
-    logs, users, sales, auditLogs, inventory, batches, searchLogs
+    currentUser, onUpdateUser, logs, users, sales, auditLogs, inventory, batches, searchLogs
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SALES' | 'INVENTORY' | 'INSIGHTS'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'PROFILE'>('OVERVIEW');
 
     // --- Computed Metrics ---
 
@@ -345,6 +348,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
     );
 
+    const renderProfile = () => (
+        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <h2 className="text-2xl font-bold text-slate-900">Admin Profile</h2>
+
+            {currentUser && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <ProfileSettings
+                        currentUser={currentUser}
+                        onUpdate={(updatedUser) => {
+                            onUpdateUser?.(updatedUser);
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="pb-10">
             <div className="flex justify-between items-end mb-8">
@@ -353,7 +373,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <p className="text-slate-500">Shop Owner View</p>
                 </div>
                 <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200">
-                    {(['OVERVIEW', 'SALES', 'INVENTORY', 'INSIGHTS'] as const).map(tab => (
+                    {(['OVERVIEW', 'SALES', 'INVENTORY', 'INSIGHTS', 'PROFILE'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -370,6 +390,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {activeTab === 'SALES' && renderSales()}
             {activeTab === 'INVENTORY' && renderInventory()}
             {activeTab === 'INSIGHTS' && renderInsights()}
+            {activeTab === 'PROFILE' && renderProfile()}
         </div>
     );
 };

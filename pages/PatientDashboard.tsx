@@ -1,12 +1,15 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import ArticleViewer from '../components/ArticleViewer';
-import { Medication, Prescription, PrescriptionStatus, InteractionLevel, Notification, Drug, DrugBatch, PrivacySettings } from '../types';
+import ProfileSettings from './ProfileSettings';
+import { Medication, Prescription, PrescriptionStatus, InteractionLevel, Notification, Drug, DrugBatch, PrivacySettings, User } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 import { supabase } from '../services/supabase';
 
 interface PatientDashboardProps {
+    currentUser?: User;
+    onUpdateUser?: (user: User) => void;
     prescriptions: Prescription[];
     inventory: Drug[];
     inventoryStock: DrugBatch[];
@@ -20,6 +23,8 @@ interface PatientDashboardProps {
 }
 
 const PatientDashboard: React.FC<PatientDashboardProps> = ({
+    currentUser,
+    onUpdateUser,
     prescriptions,
     inventory,
     inventoryStock,
@@ -448,9 +453,26 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
         </div>
     );
 
+    // -- Profile Settings State --
+    const [showProfileSettings, setShowProfileSettings] = useState(false);
+
     const renderProfile = () => (
         <div className="space-y-6 pb-20 animate-in fade-in duration-300">
             <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
+
+            {/* Profile Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+                <div>
+                    <h3 className="font-bold text-lg text-slate-900">{currentUser?.full_name}</h3>
+                    <p className="text-sm text-slate-500">{currentUser?.phone || 'No phone number'}</p>
+                </div>
+                <button
+                    onClick={() => setShowProfileSettings(true)}
+                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors"
+                >
+                    Edit Profile
+                </button>
+            </div>
 
             {/* Privacy Card */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
@@ -534,6 +556,29 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({
                     Log Out
                 </button>
             </div>
+
+            {/* Profile Settings Modal */}
+            {showProfileSettings && currentUser && (
+                <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-2xl">
+                        <button
+                            onClick={() => setShowProfileSettings(false)}
+                            className="absolute -top-12 right-0 text-white hover:text-gray-200"
+                        >
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <ProfileSettings
+                            currentUser={currentUser}
+                            onUpdate={(updatedUser) => {
+                                onUpdateUser?.(updatedUser);
+                                setShowProfileSettings(false);
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 

@@ -67,7 +67,7 @@ serve(async (req) => {
       case 'chat': {
         const { message, role } = payload ?? {};
         const systemInstruction =
-          role === 'PHARMACIST'
+          role === 'pharmacist'
             ? 'You are a helpful assistant for a pharmacist. You help with drug info, stock logic, and detailed medical interaction explanations. Be professional and concise.'
             : 'You are a helpful health assistant for a patient. You explain medications simply. Always advise consulting a real doctor or pharmacist for medical advice. Do not diagnose. Keep answers short and easy to read on mobile.';
 

@@ -1,13 +1,54 @@
 
 export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  PHARMACIST = 'PHARMACIST',
-  ADMIN = 'ADMIN',
-  SUPER_ADMIN_BMS = 'SUPER_ADMIN_BMS',
-  SUPER_ADMIN_DEV = 'SUPER_ADMIN_DEV',
-  WORKER = 'WORKER',
-  CASHIER = 'CASHIER'
+  CUSTOMER = 'customer',
+  PHARMACIST = 'pharmacist',
+  ADMIN = 'admin',
+  SUPER_ADMIN_BMS = 'super_admin_bms',
+  SUPER_ADMIN_DEV = 'super_admin_dev',
+  WORKER = 'worker',        // Deprecated: treated as pharmacist
+  CASHIER = 'cashier'       // Deprecated: treated as pharmacist
 }
+
+// Helper function to normalize roles (worker/cashier → pharmacist)
+export function normalizeRole(role: UserRole): UserRole {
+  if (role === UserRole.WORKER || role === UserRole.CASHIER) {
+    return UserRole.PHARMACIST;
+  }
+  return role;
+}
+
+// Helper to check if role is staff (not customer)
+export function isStaffRole(role: UserRole): boolean {
+  return role !== UserRole.CUSTOMER;
+}
+
+// Helper to check if role has pharmacist-level permissions
+export function hasPharmacistPermissions(role: UserRole): boolean {
+  return [
+    UserRole.PHARMACIST,
+    UserRole.WORKER,
+    UserRole.CASHIER,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN_BMS,
+    UserRole.SUPER_ADMIN_DEV
+  ].includes(role);
+}
+
+// Helper to get user-friendly role display name
+export function getRoleDisplayName(role: UserRole): string {
+  switch (role) {
+    case UserRole.CUSTOMER: return 'Patient';
+    case UserRole.PHARMACIST: return 'Pharmacist';
+    case UserRole.WORKER: return 'Pharmacist (Worker)';
+    case UserRole.CASHIER: return 'Pharmacist (Cashier)';
+    case UserRole.ADMIN: return 'Shop Owner';
+    case UserRole.SUPER_ADMIN_BMS: return 'BMS Administrator';
+    case UserRole.SUPER_ADMIN_DEV: return 'System Administrator';
+    default: return role;
+  }
+}
+
+
 
 export enum InteractionLevel {
   HIGH = 'HIGH',
@@ -228,9 +269,10 @@ export interface AILog {
 
 export interface User {
   id: string;
-  full_name: string; // Changed from name to match DB
+  full_name: string;
+  phone?: string;
   role: UserRole;
-  facility_id?: string; // Added for staff users
+  facility_id?: string;
   avatar?: string;
   privacySettings?: PrivacySettings;
 }

@@ -17,7 +17,8 @@ import { analyzePrescriptionImage, checkDrugInteractions } from './services/gemi
 import { generateUUID } from './utils/uuid';
 import {
   UserRole, User, Prescription, PrescriptionStatus, Notification, AILog,
-  Drug, DrugBatch, Sale, InventoryAdjustment, AuditLog, InventoryItem, SaleItem, SearchLog
+  Drug, DrugBatch, Sale, InventoryAdjustment, AuditLog, InventoryItem, SaleItem, SearchLog,
+  getRoleDisplayName, hasPharmacistPermissions, normalizeRole
 } from './types';
 
 // Initial Data Seeding (Keep for now as fallback/demo data)
@@ -109,6 +110,7 @@ const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
   const [adminView, setAdminView] = useState<'BUSINESS' | 'POS' | 'PHARMACIST' | 'PATIENT'>('BUSINESS');
+  const [devAdminView, setDevAdminView] = useState<'PATIENT' | 'PHARMACIST' | 'ADMIN' | 'BMS' | 'DEV'>('DEV');
 
   // -- Derived State for Legacy Dashboard Compatibility --
   // This maps the new robust batch system to the simple InventoryItem list expected by the old dashboard
@@ -724,10 +726,23 @@ const App: React.FC = () => {
         return;
       }
 
-      console.log("Profile query result:", { data, dataLength: data?.length, userId });
-      const profileData: any = data?.[0];
+      if (data && data[0]) {
+        const profile = data[0];
+        const normalizedRole = (profile.role || 'customer').toLowerCase();
 
-      if (!profileData) {
+        setCurrentUser({
+          id: profile.id,
+          full_name: profile.full_name || email.split('@')[0],
+          role: normalizedRole as UserRole,
+          facility_id: profile.facility_id,
+          preferences: profile.preferences || {},
+          privacySettings: profile.privacy_settings || {
+            profileVisibility: 'private',
+            showActivityStatus: false,
+            allowDataCollection: false
+          }
+        });
+      } else {
         // Handle the case where no profile was found
         console.warn("No profile found for user:", userId, email);
         setPendingUserData({ userId, email });
@@ -735,22 +750,6 @@ const App: React.FC = () => {
         setLoading(false);
         return;
       }
-
-      // If profileData is not null, then a profile was found
-      setCurrentUser({
-        id: profileData.id,
-        full_name: profileData.full_name || email.split('@')[0],
-        role: profileData.role as UserRole,
-        facility_id: profileData.facility_id,
-        // Load preferences from DB or use defaults
-        privacySettings: profileData.preferences || {
-          shareBrowsing: true,
-          sharePurchaseHistory: true,
-          allowAI: true,
-          anonymousMode: false,
-          allowCamera: false
-        }
-      });
 
       // Fetch inventory data
       await fetchInventoryData();
@@ -934,7 +933,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-white">{currentUser.full_name}</p>
-                <p className="text-xs text-emerald-400 font-medium">{currentUser.role.replace('_', ' ')}</p>
+                <p className="text-xs text-emerald-400 font-medium">{getRoleDisplayName(currentUser.role)}</p>
               </div>
               <button
                 onClick={handleLogout}
@@ -951,8 +950,11 @@ const App: React.FC = () => {
       </nav>
 
       <main className="pb-20">
+        {/* Customer (Patient) Dashboard */}
         {currentUser.role === UserRole.CUSTOMER && (
           <PatientDashboard
+            currentUser={currentUser}
+            onUpdateUser={setCurrentUser}
             prescriptions={prescriptions}
             inventory={drugs}
             inventoryStock={batches}
@@ -966,21 +968,27 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentUser.role === UserRole.PHARMACIST && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <PharmacistDashboard
-              prescriptions={prescriptions}
-              inventory={inventorySummary}
-              onUpdateStatus={handleLegacyUpdateStatus}
-              onAddInventory={handleAddInventory}
-              onUpdateInventory={handleUpdateInventory}
-              onDeleteInventory={handleDeleteInventory}
-              onReconcileInventory={handleReconcileInventory}
-              onAddPrescription={handleAddPrescription}
-            />
-          </div>
-        )}
+        {/* Pharmacist Dashboard (includes worker, cashier) */}
+        {(currentUser.role === UserRole.PHARMACIST ||
+          currentUser.role === UserRole.WORKER ||
+          currentUser.role === UserRole.CASHIER) && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <PharmacistDashboard
+                currentUser={currentUser}
+                onUpdateUser={setCurrentUser}
+                prescriptions={prescriptions}
+                inventory={inventorySummary}
+                onUpdateStatus={handleLegacyUpdateStatus}
+                onAddInventory={handleAddInventory}
+                onUpdateInventory={handleUpdateInventory}
+                onDeleteInventory={handleDeleteInventory}
+                onReconcileInventory={handleReconcileInventory}
+                onAddPrescription={handleAddPrescription}
+              />
+            </div>
+          )}
 
+        {/* Admin (Shop Owner) Dashboard with Multi-View Switcher */}
         {currentUser.role === UserRole.ADMIN && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
             {/* Admin Dashboard Switcher */}
@@ -1003,6 +1011,8 @@ const App: React.FC = () => {
 
             {adminView === 'BUSINESS' && (
               <AdminDashboard
+                currentUser={currentUser}
+                onUpdateUser={setCurrentUser}
                 logs={aiLogs}
                 users={[]}
                 sales={sales}
@@ -1016,6 +1026,7 @@ const App: React.FC = () => {
             {adminView === 'POS' && (
               <DispensaryDashboard
                 currentUser={currentUser}
+                onUpdateUser={setCurrentUser}
                 drugs={drugs}
                 batches={batches}
                 sales={sales}
@@ -1028,6 +1039,8 @@ const App: React.FC = () => {
 
             {adminView === 'PHARMACIST' && (
               <PharmacistDashboard
+                currentUser={currentUser}
+                onUpdateUser={setCurrentUser}
                 prescriptions={prescriptions}
                 inventory={inventorySummary}
                 onUpdateStatus={handleLegacyUpdateStatus}
@@ -1059,12 +1072,95 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* BMS Super Admin Dashboard */}
         {currentUser.role === UserRole.SUPER_ADMIN_BMS && (
           <SuperAdminDashboard />
         )}
 
+        {/* Dev Super Admin Dashboard with ALL Permissions */}
         {currentUser.role === UserRole.SUPER_ADMIN_DEV && (
-          <DevDashboard />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            {/* Dev Admin 5-Way Switcher */}
+            <div className="flex justify-center mb-8">
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-1 rounded-xl shadow-lg inline-flex">
+                {(['PATIENT', 'PHARMACIST', 'ADMIN', 'BMS', 'DEV'] as const).map(view => (
+                  <button
+                    key={view}
+                    onClick={() => setDevAdminView(view)}
+                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${devAdminView === view
+                      ? 'bg-white text-purple-600 shadow-md'
+                      : 'text-white hover:bg-white/20'
+                      }`}
+                  >
+                    {view === 'PATIENT' ? '👤 Patient' :
+                      view === 'PHARMACIST' ? '💊 Pharmacist' :
+                        view === 'ADMIN' ? '🏪 Shop Owner' :
+                          view === 'BMS' ? '📊 BMS Admin' : '⚙️ Dev Tools'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {devAdminView === 'PATIENT' && (
+              <div className="border-4 border-dashed border-purple-200 rounded-3xl p-4">
+                <div className="mb-4 text-center text-purple-600 text-xs font-bold uppercase tracking-wider">Patient Dashboard (Dev View)</div>
+                <PatientDashboard
+                  prescriptions={prescriptions}
+                  inventory={drugs}
+                  inventoryStock={batches}
+                  onAddPrescription={handleAddPrescription}
+                  logAIAction={(action, details, status) => addAuditLog('AI', action, 'AI_AGENT', { details, status })}
+                  notifications={notifications}
+                  onMarkNotificationAsRead={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
+                  userPrivacy={currentUser.privacySettings}
+                  onUpdatePrivacy={(settings) => setCurrentUser(prev => ({ ...prev!, privacySettings: settings }))}
+                  onLogSearch={handleLogSearch}
+                />
+              </div>
+            )}
+
+            {devAdminView === 'PHARMACIST' && (
+              <div className="border-4 border-dashed border-purple-200 rounded-3xl p-4">
+                <div className="mb-4 text-center text-purple-600 text-xs font-bold uppercase tracking-wider">Pharmacist Dashboard (Dev View)</div>
+                <PharmacistDashboard
+                  prescriptions={prescriptions}
+                  inventory={inventorySummary}
+                  onUpdateStatus={handleLegacyUpdateStatus}
+                  onAddInventory={handleAddInventory}
+                  onUpdateInventory={handleUpdateInventory}
+                  onDeleteInventory={handleDeleteInventory}
+                  onReconcileInventory={handleReconcileInventory}
+                  onAddPrescription={handleAddPrescription}
+                />
+              </div>
+            )}
+
+            {devAdminView === 'ADMIN' && (
+              <div className="border-4 border-dashed border-purple-200 rounded-3xl p-4">
+                <div className="mb-4 text-center text-purple-600 text-xs font-bold uppercase tracking-wider">Shop Owner Dashboard (Dev View)</div>
+                <AdminDashboard
+                  logs={aiLogs}
+                  users={[]}
+                  sales={sales}
+                  auditLogs={auditLogs}
+                  inventory={drugs}
+                  batches={batches}
+                  searchLogs={searchLogs}
+                />
+              </div>
+            )}
+
+            {devAdminView === 'BMS' && (
+              <div className="border-4 border-dashed border-purple-200 rounded-3xl p-4">
+                <div className="mb-4 text-center text-purple-600 text-xs font-bold uppercase tracking-wider">BMS Dashboard (Dev View)</div>
+                <SuperAdminDashboard />
+              </div>
+            )}
+
+            {devAdminView === 'DEV' && (
+              <DevDashboard />
+            )}
+          </div>
         )}
 
       </main>
