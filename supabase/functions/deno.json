@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "lib": [
+            "deno.window"
+        ],
+        "types": [
+            "https://deno.land/x/deploy@1.8.0/types/deploy.d.ts"
+        ]
+    },
+    "importMap": "./import_map.json"
+}

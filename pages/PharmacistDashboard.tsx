@@ -1,10 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Prescription, PrescriptionStatus, InventoryItem, Medication } from '../types';
+import { Prescription, PrescriptionStatus, InventoryItem, Medication, User } from '../types';
+import ProfileSettings from './ProfileSettings';
+import NewsFeed from '../components/NewsFeed';
+import Messaging from '../components/Messaging';
+import PurchaseOrderManager from '../components/PurchaseOrderManager';
+import OrderManagement from '../components/OrderManagement';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
 import { analyzePrescriptionImage, checkDrugInteractions, optimizeInventoryLevels } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 
 interface PharmacistDashboardProps {
+    currentUser?: User;
+    onUpdateUser?: (user: User) => void;
     prescriptions: Prescription[];
     inventory: InventoryItem[];
     onUpdateStatus: (id: string, status: PrescriptionStatus) => void;
@@ -25,6 +32,8 @@ const getStockStatus = (item: InventoryItem) => {
 };
 
 const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
+    currentUser,
+    onUpdateUser,
     prescriptions,
     inventory,
     onUpdateStatus,
@@ -34,7 +43,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     onReconcileInventory,
     onAddPrescription
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'COUNTING'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'COUNTING' | 'NEWS' | 'PROFILE'>('OVERVIEW');
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
@@ -449,16 +458,33 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         </div>
     );
 
+    const renderProfile = () => (
+        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <h2 className="text-2xl font-bold text-slate-900">Pharmacist Profile</h2>
+
+            {currentUser && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <ProfileSettings
+                        currentUser={currentUser}
+                        onUpdate={(updatedUser) => {
+                            onUpdateUser?.(updatedUser);
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="space-y-6">
 
             {/* Header / Tabs */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex overflow-x-auto">
-                {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'COUNTING'] as const).map(tab => (
+                {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === tab
+                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab
                             ? 'bg-indigo-100 text-indigo-700 shadow-sm'
                             : 'text-gray-500 hover:bg-gray-50'
                             }`}
@@ -472,8 +498,15 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
             <div className="min-h-[500px]">
                 {activeTab === 'OVERVIEW' && renderOverview()}
                 {activeTab === 'STOCK' && renderStockTable()}
-                {activeTab === 'PROCUREMENT' && renderProcurement()}
+                {activeTab === 'PROCUREMENT' && currentUser && (
+                    <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />
+                )}
+                {activeTab === 'ORDERS' && currentUser && (
+                    <OrderManagement currentUser={currentUser} facilityId={currentUser.facility_id} />
+                )}
                 {activeTab === 'COUNTING' && renderCounting()}
+                {activeTab === 'NEWS' && <NewsFeed />}
+                {activeTab === 'PROFILE' && renderProfile()}
             </div>
 
             {/* Inventory Modal (Add/Edit) */}

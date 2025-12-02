@@ -43,35 +43,35 @@ const TEST_USERS = [
     {
         email: 'dev@pharmai.com',
         password: 'Password123!',
-        role: 'SUPER_ADMIN_DEV',
+        role: 'super_admin_dev',
         full_name: 'Dev Super Admin',
         facility_type: 'NATIONAL_OFFICE'
     },
     {
         email: 'bms@pharmai.com',
         password: 'Password123!',
-        role: 'SUPER_ADMIN_BMS',
+        role: 'super_admin_bms',
         full_name: 'BMS Super Admin',
         facility_type: 'NATIONAL_OFFICE'
     },
     {
         email: 'admin@pharmai.com',
         password: 'Password123!',
-        role: 'ADMIN',
+        role: 'admin',
         full_name: 'Facility Admin',
         facility_type: 'PHARMACY'
     },
     {
         email: 'pharmacist@pharmai.com',
         password: 'Password123!',
-        role: 'PHARMACIST',
+        role: 'pharmacist',
         full_name: 'Chief Pharmacist',
         facility_type: 'PHARMACY'
     },
     {
         email: 'patient@pharmai.com',
         password: 'Password123!',
-        role: 'CUSTOMER',
+        role: 'customer',
         full_name: 'John Doe',
         facility_type: null
     }
@@ -141,7 +141,7 @@ async function seed() {
             }
 
             // Update Profile
-            const userFacilityId = user.role === 'CUSTOMER' ? null : facilityId;
+            const userFacilityId = user.role === 'customer' ? null : facilityId;
 
             const { error: profileError } = await supabase
                 .from('profiles')
