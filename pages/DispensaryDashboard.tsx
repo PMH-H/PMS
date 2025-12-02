@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Drug, DrugBatch, SaleItem, User, UserRole, InventoryAdjustment, Sale, Medication, EntryMethod } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ProfileSettings from './ProfileSettings';
+import NewsFeed from '../components/NewsFeed';
 import { extractDrugDetails, analyzePrescriptionImage } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 
@@ -22,7 +23,7 @@ interface DispensaryDashboardProps {
 const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     currentUser, onUpdateUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onUpdateDrug, onDeleteDrug, onAddBatch, onReconcile
 }) => {
-    const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS' | 'PROFILE'>('POS');
+    const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS' | 'NEWS' | 'PROFILE'>('POS');
 
     // -- POS State --
     const [cart, setCart] = useState<SaleItem[]>([]);
@@ -452,7 +453,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                     <h2 className="text-xl font-bold tracking-wide">Dispensary Module</h2>
                 </div>
                 <div className="flex gap-2 text-sm font-semibold w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-                    {['POS', 'INVENTORY', 'RECONCILE', 'REPORTS', 'PROFILE'].map(tab => (
+                    {['POS', 'INVENTORY', 'RECONCILE', 'REPORTS', 'NEWS', 'PROFILE'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -814,6 +815,11 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* --- NEWS TAB --- */}
+                {activeTab === 'NEWS' && (
+                    <NewsFeed />
                 )}
 
                 {/* --- RECONCILIATION TAB --- */}

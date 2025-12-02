@@ -52,13 +52,13 @@ export const getPrescriptions = async (userId?: string, facilityId?: string) => 
         // To filter by facility, we must join with profiles and filter on the joined table.
         query = supabase
             .from('prescriptions')
-            .select('*, profiles!inner(full_name)') // !inner ensures we only get prescriptions with a profile.
+            .select('*, profiles!prescriptions_patient_id_fkey!inner(full_name)') // !inner ensures we only get prescriptions with a profile.
             .eq('profiles.facility_id', facilityId); // Filter on the joined profiles table.
     } else {
         // Standard query, optionally filtered by patient_id
         query = supabase
             .from('prescriptions')
-            .select('*, profiles(full_name)'); // Regular join to get patient name
+            .select('*, profiles!prescriptions_patient_id_fkey(full_name)'); // Regular join to get patient name
         if (userId) {
             query = query.eq('patient_id', userId);
         }

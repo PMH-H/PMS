@@ -10,19 +10,20 @@ import AdminDashboard from '@/pages/AdminDashboard';
 import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
 import DevDashboard from '@/pages/DevDashboard';
 import { supabase } from '@/services/supabase';
-import { 
-    getItems, 
-    getBatches, 
-    processSale, 
-    getStockAlerts, 
-    createPrescription, 
-    getPrescriptions, 
-    updatePrescriptionStatus, 
-    createSearchLog, 
-    createAuditLog 
+import {
+  getItems,
+  getBatches,
+  processSale,
+  getStockAlerts,
+  createPrescription,
+  getPrescriptions,
+  updatePrescriptionStatus,
+  createSearchLog,
+  createAuditLog
 } from '@/services/database';
 import { UserRole, User, Prescription, Notification, Drug, DrugBatch, Sale, AuditLog, SearchLog, InventoryItem } from '@/types';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -36,7 +37,7 @@ const App: React.FC = () => {
   const [drugs, setDrugs] = useState<Drug[]>([]);
   const [batches, setBatches] = useState<DrugBatch[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -44,6 +45,19 @@ const App: React.FC = () => {
   };
 
   useIdleTimer(handleLogout, 15 * 60 * 1000);
+
+  useRealtimeSubscription(
+    currentUser ? ['prescriptions', 'alerts', 'items', 'item_batches', 'sales'] : [],
+    (table, payload) => {
+      if (currentUser) {
+        console.log(`Realtime update on ${table}:`, payload);
+        // Refetch all data to ensure consistency (especially for joined tables)
+        // We pass the current state values to avoid stale closures if we used them, 
+        // but fetchAllData uses arguments, so it's fine.
+        fetchAllData(currentUser.role, currentUser.id, currentUser.facility_id);
+      }
+    }
+  );
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -95,80 +109,80 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   const fetchAllData = async (role: UserRole, userId: string, facilityId?: string) => {
     const [itemsResult, patientPrescriptionsResult] = await Promise.allSettled([
-        getItems(),
-        role === UserRole.CUSTOMER ? getPrescriptions(userId) : Promise.resolve([])
+      getItems(),
+      role === UserRole.CUSTOMER ? getPrescriptions(userId) : Promise.resolve([])
     ]);
 
     if (itemsResult.status === 'fulfilled') {
-        setDrugs(itemsResult.value || []);
+      setDrugs(itemsResult.value || []);
     }
     if (patientPrescriptionsResult.status === 'fulfilled') {
-        setPrescriptions(patientPrescriptionsResult.value || []);
+      setPrescriptions(patientPrescriptionsResult.value || []);
     }
 
     if (facilityId) {
-        const [batchesResult, salesResult, alertsResult, facilityRxsResult] = await Promise.allSettled([
-            getBatches({ facilityId }),
-            supabase.from('sales').select('*').eq('facility_id', facilityId),
-            getStockAlerts(facilityId),
-            getPrescriptions(undefined, facilityId) // Fetch all for facility
-        ]);
+      const [batchesResult, salesResult, alertsResult, facilityRxsResult] = await Promise.allSettled([
+        getBatches({ facilityId }),
+        supabase.from('sales').select('*').eq('facility_id', facilityId),
+        getStockAlerts(facilityId),
+        getPrescriptions(undefined, facilityId) // Fetch all for facility
+      ]);
 
-        const newBatches = batchesResult.status === 'fulfilled' ? batchesResult.value || [] : [];
-        const newSales = salesResult.status === 'fulfilled' ? salesResult.value.data || [] : [];
-        const newNotifications = alertsResult.status === 'fulfilled' ? alertsResult.value || [] : [];
-        const facilityRxs = facilityRxsResult.status === 'fulfilled' ? facilityRxsResult.value || [] : [];
+      const newBatches = batchesResult.status === 'fulfilled' ? batchesResult.value || [] : [];
+      const newSales = salesResult.status === 'fulfilled' ? salesResult.value.data || [] : [];
+      const newNotifications = alertsResult.status === 'fulfilled' ? alertsResult.value || [] : [];
+      const facilityRxs = facilityRxsResult.status === 'fulfilled' ? facilityRxsResult.value || [] : [];
 
-        setBatches(newBatches);
-        setSales(newSales);
-        setNotifications(newNotifications as Notification[]);
+      setBatches(newBatches);
+      setSales(newSales);
+      setNotifications(newNotifications as Notification[]);
 
-        // Combine patient and facility prescriptions, ensuring no duplicates
-        const combined = [...prescriptions, ...facilityRxs];
-        setPrescriptions(Array.from(new Map(combined.map(p => [p.id, p])).values()));
+      // Combine patient and facility prescriptions, ensuring no duplicates
+      const combined = [...prescriptions, ...facilityRxs];
+      setPrescriptions(Array.from(new Map(combined.map(p => [p.id, p])).values()));
     }
   };
 
   const handleProfileCreated = () => {
     setShowProfileSetup(false);
     if (pendingUserData) {
-        fetchUserProfile(pendingUserData.userId, pendingUserData.email);
+      fetchUserProfile(pendingUserData.userId, pendingUserData.email);
     }
   };
-  
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
   }
 
   if (!currentUser) {
-    return showProfileSetup && pendingUserData ? 
-      <ProfileSetup userId={pendingUserData.userId} email={pendingUserData.email} onProfileCreated={handleProfileCreated} /> : 
+    return showProfileSetup && pendingUserData ?
+      <ProfileSetup userId={pendingUserData.userId} email={pendingUserData.email} onProfileCreated={handleProfileCreated} /> :
       <Login />;
   }
 
   const renderDashboard = () => {
     const commonProps = { currentUser: currentUser!, onUpdateUser: setCurrentUser };
-    
+
     // Defensive check to prevent crashes if `drugs` or `batches` are not ready
     const safeDrugs = Array.isArray(drugs) ? drugs : [];
     const safeBatches = Array.isArray(batches) ? batches : [];
 
     const inventorySummary: InventoryItem[] = safeDrugs.map(drug => ({
-        id: drug.id, name: drug.name, unit: drug.unit, category: drug.category,
-        currentStock: safeBatches.filter(b => b.item_id === drug.id).reduce((sum, b) => sum + b.current_quantity, 0),
-        expirationDate: 'N/A', minLevel: 0, maxLevel: 0, leadTime: 0, costPerUnit: 0
-      }));
+      id: drug.id, name: drug.name, unit: drug.unit, category: drug.category,
+      currentStock: safeBatches.filter(b => b.item_id === drug.id).reduce((sum, b) => sum + b.current_quantity, 0),
+      expirationDate: 'N/A', minLevel: 0, maxLevel: 0, leadTime: 0, costPerUnit: 0
+    }));
 
     switch (currentUser.role) {
       case UserRole.CUSTOMER:
-        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => {}} notifications={notifications} onMarkNotificationAsRead={(id) => {}} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => {}} onLogSearch={() => {}} />;
+        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={notifications} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
-        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdatePrescriptionStatus={(id,s) => updatePrescriptionStatus(id,s)} />;
+        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdatePrescriptionStatus={(id, s) => updatePrescriptionStatus(id, s)} />;
       case UserRole.ADMIN:
-        return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => {}} onUpdateStaff={(s) => {}} />;
+        return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
       case UserRole.SUPER_ADMIN_BMS:
         return <SuperAdminDashboard {...commonProps} />;
       case UserRole.SUPER_ADMIN_DEV:

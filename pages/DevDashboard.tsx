@@ -5,8 +5,13 @@ import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { supabase, checkSupabaseConnection } from '../services/supabase';
 import UserManagement from '../components/UserManagement';
 
+import MetricGrid from '../components/MetricGrid';
+import SystemMonitor from '../components/SystemMonitor';
+import DevTools from '../components/DevTools';
+import AuditLogViewer from '../components/AuditLogViewer';
+
 const DevDashboard: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'MONITOR' | 'BUILDER' | 'USERS' | 'DEV_TOOLS' | 'USER_MANAGEMENT'>('MONITOR');
+    const [activeTab, setActiveTab] = useState<'MONITOR' | 'BUILDER' | 'USERS' | 'DEV_TOOLS' | 'USER_MANAGEMENT' | 'AUDIT_LOGS'>('MONITOR');
     const [metrics, setMetrics] = useState<MetricConfig[]>([]);
     const [logs, setLogs] = useState<string[]>([]);
     const [systemHealth, setSystemHealth] = useState<SystemHealth[]>([]);
@@ -56,7 +61,7 @@ const DevDashboard: React.FC = () => {
                         <p className="text-slate-400 text-sm">Platform Control & Developer Tools</p>
                     </div>
                     <div className="flex bg-slate-800 p-1 rounded-lg">
-                        {['MONITOR', 'BUILDER', 'USERS', 'DEV_TOOLS', 'USER_MANAGEMENT'].map(tab => (
+                        {['MONITOR', 'BUILDER', 'USERS', 'DEV_TOOLS', 'USER_MANAGEMENT', 'AUDIT_LOGS'].map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -71,8 +76,38 @@ const DevDashboard: React.FC = () => {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {activeTab === 'MONITOR' && (
+                    <div className="space-y-8 animate-in fade-in duration-300">
+                        <MetricGrid facilityId={selectedFacilityFilter} />
+                        <SystemMonitor />
+                    </div>
+                )}
+
+                {activeTab === 'DEV_TOOLS' && (
+                    <div className="animate-in fade-in duration-300">
+                        <DevTools />
+                    </div>
+                )}
+
                 {activeTab === 'USER_MANAGEMENT' && renderUserManagement()}
-                {/* Other tabs */}
+
+                {activeTab === 'AUDIT_LOGS' && (
+                    <div className="animate-in fade-in duration-300">
+                        <AuditLogViewer facilityId={selectedFacilityFilter || undefined} />
+                    </div>
+                )}
+
+                {/* Placeholders for other tabs */}
+                {activeTab === 'BUILDER' && (
+                    <div className="text-center py-12 text-slate-500">
+                        Metric Builder coming soon...
+                    </div>
+                )}
+                {activeTab === 'USERS' && (
+                    <div className="text-center py-12 text-slate-500">
+                        User Analytics coming soon...
+                    </div>
+                )}
             </div>
         </div>
     );

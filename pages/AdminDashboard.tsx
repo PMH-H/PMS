@@ -1,7 +1,13 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { AILog, User, Sale, AuditLog, Drug, DrugBatch, SearchLog } from '../types';
 import ProfileSettings from './ProfileSettings';
+import Messaging from '../components/Messaging';
+import PurchaseOrderManager from '../components/PurchaseOrderManager';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import AuditLogViewer from '../components/AuditLogViewer';
+import PromotionManager from '../components/PromotionManager';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend
@@ -22,17 +28,17 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
     currentUser, onUpdateUser, logs, users, sales, auditLogs, inventory, batches, searchLogs
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'PROFILE'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'ANALYTICS' | 'PROCUREMENT' | 'PROMOTIONS' | 'COMPLIANCE' | 'PROFILE'>('OVERVIEW');
 
     // --- Computed Metrics ---
 
     // Overview
     const today = new Date().toISOString().split('T')[0];
-    const todaySales = sales.filter(s => s.created_at.startsWith(today));
+    const todaySales = (sales || []).filter(s => s.created_at.startsWith(today));
     const todayRevenue = todaySales.reduce((sum, s) => sum + s.total_price, 0);
-    const totalInventoryValue = batches.reduce((sum, b) => sum + (b.current_quantity * b.cost_per_unit), 0);
-    const lowStockCount = inventory.filter(d => {
-        const total = batches.filter(b => b.item_id === d.id).reduce((a, b) => a + b.current_quantity, 0);
+    const totalInventoryValue = (batches || []).reduce((sum, b) => sum + (b.current_quantity * b.cost_per_unit), 0);
+    const lowStockCount = (inventory || []).filter(d => {
+        const total = (batches || []).filter(b => b.item_id === d.id).reduce((a, b) => a + b.current_quantity, 0);
         return total <= d.min_level;
     }).length;
 
@@ -51,9 +57,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Employee Performance
     const employeeStats = useMemo(() => {
         const stats: { [id: string]: { name: string, sales: number, count: number } } = {};
-        sales.forEach(s => {
+        (sales || []).forEach(s => {
             const uid = s.sold_by_user_id;
-            if (!stats[uid]) stats[uid] = { name: users.find(u => u.id === uid)?.full_name || 'Unknown', sales: 0, count: 0 };
+            if (!stats[uid]) stats[uid] = { name: (users || []).find(u => u.id === uid)?.full_name || 'Unknown', sales: 0, count: 0 };
             stats[uid].sales += s.total_price;
             stats[uid].count += 1;
         });
@@ -63,9 +69,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Top Products
     const topProducts = useMemo(() => {
         const counts: { [name: string]: number } = {};
-        sales.forEach(s => {
+        (sales || []).forEach(s => {
             s.items.forEach(i => {
-                const dName = inventory.find(d => d.id === i.item_id)?.name || 'Unknown';
+                const dName = (inventory || []).find(d => d.id === i.item_id)?.name || 'Unknown';
                 counts[dName] = (counts[dName] || 0) + i.quantity;
             });
         });
@@ -78,7 +84,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Search Insights
     const topSearches = useMemo(() => {
         const counts: { [term: string]: number } = {};
-        searchLogs.forEach(l => {
+        (searchLogs || []).forEach(l => {
             const term = l.term.toLowerCase();
             counts[term] = (counts[term] || 0) + 1;
         });
@@ -90,11 +96,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const expiringBatches = useMemo(() => {
         const threshold = new Date();
         threshold.setDate(threshold.getDate() + 90);
-        return batches
+        return (batches || [])
             .filter(b => new Date(b.expiry_date) <= threshold && b.current_quantity > 0)
             .map(b => ({
                 ...b,
-                drugName: inventory.find(d => d.id === b.item_id)?.name || 'Unknown'
+                drugName: (inventory || []).find(d => d.id === b.item_id)?.name || 'Unknown'
             }));
     }, [batches, inventory]);
 
@@ -143,7 +149,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <p className="text-gray-500 text-sm font-bold uppercase">Customer Searches</p>
-                    <p className="text-3xl font-bold text-indigo-600 mt-2">{searchLogs.length}</p>
+                    <p className="text-3xl font-bold text-indigo-600 mt-2">{(searchLogs || []).length}</p>
                 </div>
             </div>
 
@@ -241,7 +247,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-3">
                     <h3 className="font-bold text-gray-900 mb-4">Audit Log (Voids & Manual Entries)</h3>
                     <div className="overflow-y-auto h-64 space-y-3">
-                        {auditLogs.slice().reverse().filter(l => ['VOID', 'ADJUSTMENT', 'SALE'].includes(l.action)).map(log => (
+                        {(auditLogs || []).slice().reverse().filter(l => ['VOID', 'ADJUSTMENT', 'SALE'].includes(l.action)).map(log => (
                             <div key={log.id} className="text-sm p-3 bg-gray-50 rounded-lg border border-gray-100">
                                 <div className="flex justify-between mb-1">
                                     <span className={`font-bold text-xs px-2 py-0.5 rounded ${log.action === 'VOID' ? 'bg-red-100 text-red-700' :
@@ -372,12 +378,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <h1 className="text-2xl font-bold text-slate-900">Business Dashboard</h1>
                     <p className="text-slate-500">Shop Owner View</p>
                 </div>
-                <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200">
-                    {(['OVERVIEW', 'SALES', 'INVENTORY', 'INSIGHTS', 'PROFILE'] as const).map(tab => (
+                <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200 overflow-x-auto">
+                    {(['OVERVIEW', 'SALES', 'INVENTORY', 'INSIGHTS', 'ANALYTICS', 'PROCUREMENT', 'PROMOTIONS', 'COMPLIANCE', 'PROFILE'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${activeTab === tab ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+                            className={`px-4 py-2 text-sm font-bold rounded-md transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                         >
                             {tab}
@@ -390,6 +396,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {activeTab === 'SALES' && renderSales()}
             {activeTab === 'INVENTORY' && renderInventory()}
             {activeTab === 'INSIGHTS' && renderInsights()}
+            {activeTab === 'ANALYTICS' && currentUser && (
+                <AnalyticsDashboard facilityId={currentUser.facility_id} />
+            )}
+            {activeTab === 'PROCUREMENT' && currentUser && (
+                <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />
+            )}
+            {activeTab === 'PROMOTIONS' && currentUser && (
+                <PromotionManager currentUser={currentUser} facilityId={currentUser.facility_id} />
+            )}
+            {activeTab === 'COMPLIANCE' && (
+                <AuditLogViewer facilityId={currentUser?.facility_id} />
+            )}
             {activeTab === 'PROFILE' && renderProfile()}
         </div>
     );
