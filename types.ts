@@ -1,4 +1,3 @@
-
 export enum UserRole {
   CUSTOMER = 'customer',
   PHARMACIST = 'pharmacist',
@@ -47,8 +46,6 @@ export function getRoleDisplayName(role: UserRole): string {
     default: return role;
   }
 }
-
-
 
 export enum InteractionLevel {
   HIGH = 'HIGH',
