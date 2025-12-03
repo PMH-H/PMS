@@ -21,6 +21,17 @@ const PrescriptionUpload: React.FC<PrescriptionUploadProps> = ({ userId, onUploa
 
         setUploading(true);
         try {
+            // Convert file to base64 for AI processing
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            await new Promise((resolve, reject) => {
+                reader.onload = resolve;
+                reader.onerror = reject;
+            });
+
+            const base64Image = reader.result as string;
+
             // Upload to Supabase Storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${userId}-${Date.now()}.${fileExt}`;
@@ -32,35 +43,45 @@ const PrescriptionUpload: React.FC<PrescriptionUploadProps> = ({ userId, onUploa
 
             if (uploadError) throw uploadError;
 
-            // Create prescription record
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('prescriptions')
+                .getPublicUrl(filePath);
+
+            // Parse prescription with AI
+            let medications: any[] = [];
+            let interactions: any[] = [];
+
+            try {
+                // Import AI service
+                const { analyzePrescriptionImage, checkDrugInteractions } = await import('../services/geminiService');
+
+                // Extract medications from image
+                medications = await analyzePrescriptionImage(base64Image);
+
+                // Check for drug interactions
+                if (medications.length > 0) {
+                    interactions = await checkDrugInteractions(medications);
+                }
+            } catch (aiErr) {
+                console.warn('AI processing failed:', aiErr);
+                // Continue without AI parsing - pharmacist can review manually
+            }
+
+            // Create prescription record with parsed data
             const { data: prescription, error: prescriptionError } = await supabase
                 .from('prescriptions')
                 .insert({
                     patient_id: userId,
-                    storage_path: filePath,
-                    filename: file.name,
-                    mime_type: file.type,
-                    status: 'pending',
+                    image_url: publicUrl,
+                    status: 'PENDING',
+                    medications: medications,
+                    interactions: interactions
                 })
                 .select()
                 .single();
 
             if (prescriptionError) throw prescriptionError;
-
-            // Call AI processing Edge Function (async, don't wait)
-            try {
-                const { data: aiData, error: aiError } = await supabase.functions.invoke('process-prescription', {
-                    body: { filePath, patientId: userId }
-                });
-
-                if (aiError) {
-                    console.warn('AI processing failed:', aiError);
-                    // Don't fail the upload, just log the error
-                }
-            } catch (aiErr) {
-                console.warn('AI processing error:', aiErr);
-                // Continue anyway - pharmacist can manually review
-            }
 
             onUploadComplete(prescription.id);
         } catch (err: any) {

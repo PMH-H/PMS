@@ -64,15 +64,63 @@ const invokeGemini = async (action: string, payload: any): Promise<GeminiInvokeR
 /** --- Public API --- */
 
 export const analyzePrescriptionImage = async (base64Image: string): Promise<Medication[]> => {
-  const { response, error } = await invokeGemini('analyzePrescriptionImage', { base64Image });
-  if (error) {
-    console.error('analyzePrescriptionImage - OCR Error:', error);
-    return [];
+  const { response, error, notImplemented } = await invokeGemini('analyzePrescriptionImage', { base64Image });
+
+  // If Edge Function fails or doesn't exist, try direct API call as fallback
+  if (error || notImplemented) {
+    console.warn('Edge Function failed, trying direct Gemini API...', error);
+    try {
+      return await analyzePrescriptionImageDirect(base64Image);
+    } catch (directError) {
+      console.error('Direct API also failed:', directError);
+      return [];
+    }
   }
+
   if (!response) return [];
 
   // Map returned items to Medication and add local id for UI usage
   return (response as any[]).map((item: any) => ({ ...item, id: generateUUID() } as Medication));
+};
+
+// Direct Gemini API fallback (when Edge Function unavailable)
+const analyzePrescriptionImageDirect = async (base64Image: string): Promise<Medication[]> => {
+  const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error('VITE_GEMINI_API_KEY not found in environment');
+    return [];
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: 'Extract all medications from this prescription image. Return a JSON array with objects containing: name (medication name), dosage (e.g., "500mg"), frequency (e.g., "twice daily"). Only return the JSON array, no other text.' },
+            { inline_data: { mime_type: 'image/jpeg', data: base64Image.split(',')[1] } }
+          ]
+        }]
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API response:', errorText);
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+
+  // Extract JSON from response
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  const medications = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+
+  return medications.map((item: any) => ({ ...item, id: generateUUID() }));
 };
 
 export const chatWithAssistant = async (message: string, role: string): Promise<string> => {

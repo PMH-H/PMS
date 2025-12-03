@@ -5,6 +5,7 @@ import NewsFeed from '../components/NewsFeed';
 import Messaging from '../components/Messaging';
 import PurchaseOrderManager from '../components/PurchaseOrderManager';
 import OrderManagement from '../components/OrderManagement';
+import PrescriptionManager from '../components/PrescriptionManager';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
 import { analyzePrescriptionImage, checkDrugInteractions, optimizeInventoryLevels } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
@@ -43,7 +44,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     onReconcileInventory,
     onAddPrescription
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'COUNTING' | 'NEWS' | 'PROFILE'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'PRESCRIPTIONS' | 'COUNTING' | 'NEWS' | 'PROFILE'>('OVERVIEW');
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
@@ -141,12 +142,14 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                     const interactions = await checkDrugInteractions(meds);
                     const newRx: Prescription = {
                         id: generateUUID(),
+                        patient_id: currentUser?.id || '',
                         patientName: "Walk-in Patient",
-                        date: new Date().toISOString().split('T')[0],
                         medications: meds,
                         status: PrescriptionStatus.PENDING,
-                        imageUrl: reader.result as string,
-                        interactions
+                        image_url: reader.result as string,
+                        interactions,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
                     };
                     onAddPrescription(newRx);
                     alert("Prescription uploaded successfully!");
@@ -480,7 +483,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
 
             {/* Header / Tabs */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex overflow-x-auto">
-                {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
+                {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'PRESCRIPTIONS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -503,6 +506,9 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 )}
                 {activeTab === 'ORDERS' && currentUser && (
                     <OrderManagement currentUser={currentUser} facilityId={currentUser.facility_id} />
+                )}
+                {activeTab === 'PRESCRIPTIONS' && currentUser && (
+                    <PrescriptionManager currentUser={currentUser} facilityId={currentUser.facility_id} />
                 )}
                 {activeTab === 'COUNTING' && renderCounting()}
                 {activeTab === 'NEWS' && <NewsFeed />}
