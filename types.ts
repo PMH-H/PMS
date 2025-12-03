@@ -70,13 +70,17 @@ export interface Medication {
 
 export interface Prescription {
   id: string;
-  patientName: string;
-  date: string;
-  medications: Medication[];
+  patient_id: string;
+  patientName?: string; // Derived from join with profiles
   status: PrescriptionStatus;
-  notes?: string;
-  imageUrl?: string; // Base64 or URL
+  image_url?: string;
+  medications: Medication[];
   interactions?: InteractionAlert[];
+  notes?: string;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InteractionAlert {
