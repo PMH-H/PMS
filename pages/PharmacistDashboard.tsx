@@ -70,7 +70,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     });
 
     const pendingPrescriptions = useMemo(() =>
-        prescriptions.filter(p => p.status === PrescriptionStatus.PENDING),
+        prescriptions.filter(p => p.status?.toUpperCase() === 'PENDING'),
         [prescriptions]);
 
     // Analytics Data
@@ -167,42 +167,43 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     // --- Render Functions ---
 
     const renderOverview = () => (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-4 md:space-y-6 animate-in fade-in duration-300">
             <div className="flex justify-end mb-4">
                 <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                    className="bg-indigo-600 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
                 >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    {isUploading ? 'Uploading...' : 'Upload Prescription'}
+                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <span className="hidden sm:inline">{isUploading ? 'Uploading...' : 'Upload Prescription'}</span>
+                    <span className="sm:hidden">{isUploading ? 'Uploading...' : 'Upload Rx'}</span>
                 </button>
                 <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-sm font-medium text-gray-500">Pending Rx</p>
-                    <p className="text-3xl font-bold text-indigo-600 mt-2">{pendingPrescriptions.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+                    <p className="text-xs md:text-sm font-medium text-gray-500">Pending Rx</p>
+                    <p className="text-2xl md:text-3xl font-bold text-indigo-600 mt-1 md:mt-2">{pendingPrescriptions.length}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-sm font-medium text-gray-500">Critical Stock</p>
-                    <p className="text-3xl font-bold text-red-600 mt-2">{procurementList.length}</p>
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+                    <p className="text-xs md:text-sm font-medium text-gray-500">Critical Stock</p>
+                    <p className="text-2xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{procurementList.length}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-sm font-medium text-gray-500">Total Value</p>
-                    <p className="text-3xl font-bold text-green-700 mt-2">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+                    <p className="text-xs md:text-sm font-medium text-gray-500">Total Value</p>
+                    <p className="text-xl md:text-3xl font-bold text-green-700 mt-1 md:mt-2">
                         ZMW {inventory.reduce((acc, i) => acc + (i.currentStock * i.costPerUnit), 0).toFixed(2)}
                     </p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-sm font-medium text-gray-500">Inventory Accuracy</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">98.5%</p>
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+                    <p className="text-xs md:text-sm font-medium text-gray-500">Inventory Accuracy</p>
+                    <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">98.5%</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* ABC Analysis Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-w-0">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-gray-900">ABC Analysis (Inventory Value)</h3>
                         <button
@@ -479,22 +480,24 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6 p-2 md:p-0">
 
             {/* Header / Tabs */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex overflow-x-auto">
-                {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'PRESCRIPTIONS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab
-                            ? 'bg-indigo-100 text-indigo-700 shadow-sm'
-                            : 'text-gray-500 hover:bg-gray-50'
-                            }`}
-                    >
-                        {tab === 'STOCK' ? 'STOCK CONTROL' : tab}
-                    </button>
-                ))}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1 md:p-2">
+                <div className="flex overflow-x-auto scrollbar-hide gap-1">
+                    {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'PRESCRIPTIONS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`flex-shrink-0 px-3 md:px-4 py-2 md:py-3 rounded-lg text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab
+                                ? 'bg-indigo-100 text-indigo-700 shadow-sm'
+                                : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                        >
+                            {tab === 'STOCK' ? 'STOCK' : tab === 'PROCUREMENT' ? 'PROCURE' : tab}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Content Area */}

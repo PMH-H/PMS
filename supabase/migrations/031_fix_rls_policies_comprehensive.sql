@@ -299,3 +299,4 @@ CREATE POLICY "Admins manage facility promotions" ON promotions
       AND (facility_id = promotions.facility_id OR role IN ('super_admin_bms', 'super_admin_dev'))
     )
   );
+5472

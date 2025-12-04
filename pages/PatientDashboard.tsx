@@ -54,10 +54,30 @@ const PrescriptionPreviewModal: React.FC<{ prescription: Prescription; onClose: 
                     <span className="text-sm text-slate-500">Date: {prescription.date}</span>
                 </div>
 
-                {prescription.imageUrl && (
+
+                {(prescription as any).notes && (
+                    <div className={`p-4 rounded-lg border ${prescription.status === 'REJECTED' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                        <h3 className={`font-bold text-sm mb-1 ${prescription.status === 'REJECTED' ? 'text-red-800' : 'text-blue-800'}`}>
+                            {prescription.status === 'REJECTED' ? 'Rejection Reason / Notes:' : 'Pharmacist Notes:'}
+                        </h3>
+                        <p className={`text-sm ${prescription.status === 'REJECTED' ? 'text-red-700' : 'text-blue-700'}`}>
+                            {(prescription as any).notes}
+                        </p>
+                    </div>
+                )}
+
+                {(prescription.imageUrl || (prescription as any).image_url) && (
                     <div>
                         <h3 className="font-semibold text-slate-800 mb-2">Original Prescription Image</h3>
-                        <img src={prescription.imageUrl} alt="Prescription" className="rounded-lg border border-gray-200 w-full object-contain" />
+                        <img
+                            src={prescription.imageUrl || (prescription as any).image_url}
+                            alt="Prescription"
+                            className="rounded-lg border border-gray-200 w-full max-h-96 object-contain bg-gray-50"
+                            onError={(e) => {
+                                console.error('Image failed to load in patient view');
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%239ca3af" font-size="16"%3EImage not available%3C/text%3E%3C/svg%3E';
+                            }}
+                        />
                     </div>
                 )}
 
@@ -180,12 +200,24 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 <h3 className="font-bold text-slate-800 mb-3">My Prescriptions</h3>
                 {props.prescriptions.length > 0 ? (
                     props.prescriptions.map(p =>
-                        <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full text-left p-3 border-b last:border-b-0 hover:bg-slate-50 rounded-lg">
-                            <div className='flex justify-between items-center'>
-                                <span className='font-medium'>{p.medications.map(m => m.name).join(', ')}</span>
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.status}</span>
+                        <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full text-left p-3 border-b last:border-b-0 hover:bg-slate-50 rounded-lg transition-colors group">
+                            <div className='flex justify-between items-center mb-1'>
+                                <span className={`font-medium ${p.medications && p.medications.length > 0 ? 'text-slate-900' : 'text-slate-500 italic'}`}>
+                                    {p.medications && p.medications.length > 0
+                                        ? p.medications.map(m => m.name).join(', ')
+                                        : 'Prescription Image Uploaded (Click to View)'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${p.status?.toUpperCase() === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                        p.status?.toUpperCase() === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                            'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    {p.status}
+                                </span>
                             </div>
-                            <span className='text-xs text-slate-500'>{p.date}</span>
+                            <div className="flex justify-between items-center">
+                                <span className='text-xs text-slate-500'>{p.date}</span>
+                                <span className="text-xs text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">View Details →</span>
+                            </div>
                         </button>)
                 ) : <p className="text-sm text-slate-500 p-3">No active prescriptions found.</p>}
             </div>
