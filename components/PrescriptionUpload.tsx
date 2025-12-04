@@ -13,6 +13,7 @@ const PrescriptionUpload: React.FC<PrescriptionUploadProps> = ({ userId, onUploa
     const [scanning, setScanning] = useState(false);
     const [scannedCode, setScannedCode] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
@@ -138,23 +139,30 @@ const PrescriptionUpload: React.FC<PrescriptionUploadProps> = ({ userId, onUploa
         setScanning(false);
     };
 
-    const handleCameraCapture = async () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
     return (
         <div className="space-y-4">
             {/* File Upload */}
             <div className="bg-white p-6 rounded-xl border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Upload Prescription</h3>
 
+                {/* Hidden file input for camera capture */}
+                <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file);
+                    }}
+                    className="hidden"
+                />
+
+                {/* Hidden file input for file picker */}
                 <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*,.pdf"
-                    capture="environment"
                     onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleFileUpload(file);
@@ -164,7 +172,7 @@ const PrescriptionUpload: React.FC<PrescriptionUploadProps> = ({ userId, onUploa
 
                 <div className="grid grid-cols-2 gap-3">
                     <button
-                        onClick={handleCameraCapture}
+                        onClick={() => cameraInputRef.current?.click()}
                         disabled={uploading}
                         className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors disabled:opacity-50"
                     >

@@ -1,9 +1,11 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import ChatAssistant from '@/components/ChatAssistant';
 import Login from '@/components/Login';
 import ProfileSetup from '@/components/ProfileSetup';
+import NotificationSystem from '@/components/NotificationSystem';
 import PatientDashboard from '@/pages/PatientDashboard';
 import PharmacistDashboard from '@/pages/PharmacistDashboard';
 import AdminDashboard from '@/pages/AdminDashboard';
@@ -199,6 +201,7 @@ const App: React.FC = () => {
         {renderDashboard()}
       </main>
       {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
+      {currentUser && <NotificationSystem userId={currentUser.id} />}
     </div>
   );
 };
