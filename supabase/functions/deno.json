@@ -1,11 +1,12 @@
 {
     "compilerOptions": {
         "lib": [
-            "deno.window"
+            "deno.window",
+            "dom",
+            "dom.iterable"
         ],
-        "types": [
-            "https://deno.land/x/deploy@1.8.0/types/deploy.d.ts"
-        ]
+        "strict": true
     },
-    "importMap": "./import_map.json"
+    "importMap": "./import_map.json",
+    "lock": false
 }

@@ -9,6 +9,7 @@ import {
   InteractionAlert,
 } from '../types';
 import { generateUUID } from '../utils/uuid';
+import { logAIMetric } from './metricsService';
 
 type GeminiInvokeResult = {
   response?: any;
@@ -64,23 +65,41 @@ const invokeGemini = async (action: string, payload: any): Promise<GeminiInvokeR
 /** --- Public API --- */
 
 export const analyzePrescriptionImage = async (base64Image: string): Promise<Medication[]> => {
-  const { response, error, notImplemented } = await invokeGemini('analyzePrescriptionImage', { base64Image });
+  const startTime = performance.now();
+  let success = false;
+  let result: Medication[] = [];
 
-  // If Edge Function fails or doesn't exist, try direct API call as fallback
-  if (error || notImplemented) {
-    console.warn('Edge Function failed, trying direct Gemini API...', error);
-    try {
-      return await analyzePrescriptionImageDirect(base64Image);
-    } catch (directError) {
-      console.error('Direct API also failed:', directError);
-      return [];
+  try {
+    const { response, error, notImplemented } = await invokeGemini('analyzePrescriptionImage', { base64Image });
+
+    // If Edge Function fails or doesn't exist, try direct API call as fallback
+    if (error || notImplemented) {
+      console.warn('Edge Function failed, trying direct Gemini API...', error);
+      try {
+        result = await analyzePrescriptionImageDirect(base64Image);
+        success = result.length > 0;
+      } catch (directError) {
+        console.error('Direct API also failed:', directError);
+        result = [];
+        success = false;
+      }
+    } else if (response) {
+      // Map returned items to Medication and add local id for UI usage
+      result = (response as any[]).map((item: any) => ({ ...item, id: generateUUID() } as Medication));
+      success = result.length > 0;
     }
+
+    return result;
+  } finally {
+    // Log AI metrics
+    const responseTimeMs = Math.round(performance.now() - startTime);
+    logAIMetric({
+      action: 'prescription_parse',
+      success,
+      responseTimeMs,
+      metadata: { medicationsFound: result.length }
+    }).catch(() => { }); // Don't block on metric logging
   }
-
-  if (!response) return [];
-
-  // Map returned items to Medication and add local id for UI usage
-  return (response as any[]).map((item: any) => ({ ...item, id: generateUUID() } as Medication));
 };
 
 // Direct Gemini API fallback (when Edge Function unavailable)

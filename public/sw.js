@@ -6,7 +6,6 @@ const OFFLINE_URL = '/offline.html';
 const urlsToCache = [
     '/',
     '/index.html',
-    '/index.css',
     '/manifest.json',
     OFFLINE_URL
 ];

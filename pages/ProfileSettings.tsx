@@ -12,6 +12,31 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
   const [phone, setPhone] = useState(currentUser.phone || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      alert("Password updated successfully");
+      setShowPasswordModal(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      alert("Failed to update password: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,11 +139,16 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
             </div>
           </div>
 
+
           {/* Security Tools Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">Security Tools</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button type="button" className="p-4 border border-slate-200 rounded-xl hover:bg-slate-50 text-left group transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(true)}
+                className="p-4 border border-slate-200 rounded-xl hover:bg-slate-50 text-left group transition-colors"
+              >
                 <div className="font-bold text-slate-900 group-hover:text-emerald-600">Change Password</div>
                 <div className="text-xs text-slate-500 mt-1">Update your login credentials</div>
               </button>
@@ -148,6 +178,52 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
           </div>
         </form>
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-2xl">
+            <h3 className="text-lg font-bold mb-4">Change Password</h3>
+            <form onSubmit={handlePasswordChange}>
+              <input
+                type="password"
+                placeholder="New Password"
+                className="w-full border p-2 rounded mb-3"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              <input
+                type="password"
+                placeholder="Confirm New Password"
+                className="w-full border p-2 rounded mb-4"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowPasswordModal(false); setNewPassword(''); setConfirmPassword(''); }}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !newPassword}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Update Password
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

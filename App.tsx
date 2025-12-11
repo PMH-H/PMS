@@ -5,12 +5,14 @@ import Navbar from '@/components/Navbar';
 import ChatAssistant from '@/components/ChatAssistant';
 import Login from '@/components/Login';
 import ProfileSetup from '@/components/ProfileSetup';
+import ProfileSettings from '@/pages/ProfileSettings';
 import NotificationSystem from '@/components/NotificationSystem';
-import PatientDashboard from '@/pages/PatientDashboard';
-import PharmacistDashboard from '@/pages/PharmacistDashboard';
-import AdminDashboard from '@/pages/AdminDashboard';
-import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
-import DevDashboard from '@/pages/DevDashboard';
+// Lazy load dashboards to reduce initial bundle size
+const PatientDashboard = React.lazy(() => import('@/pages/PatientDashboard'));
+const PharmacistDashboard = React.lazy(() => import('@/pages/PharmacistDashboard'));
+const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
+const SuperAdminDashboard = React.lazy(() => import('@/pages/SuperAdminDashboard'));
+const DevDashboard = React.lazy(() => import('@/pages/DevDashboard'));
 import { supabase } from '@/services/supabase';
 import {
   getItems,
@@ -155,6 +157,9 @@ const App: React.FC = () => {
     }
   };
 
+  // Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
   }
@@ -182,7 +187,7 @@ const App: React.FC = () => {
       case UserRole.CUSTOMER:
         return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={notifications} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
-        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdatePrescriptionStatus={(id, s) => updatePrescriptionStatus(id, s)} />;
+        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
       case UserRole.ADMIN:
         return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
       case UserRole.SUPER_ADMIN_BMS:
@@ -196,14 +201,54 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar currentUser={currentUser} onLogout={handleLogout} />
+      <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
       <main className="pb-20">
-        {renderDashboard()}
+        <React.Suspense fallback={
+          <div className="flex items-center justify-center p-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+          </div>
+        }>
+          {renderDashboard()}
+        </React.Suspense>
       </main>
       {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
       {currentUser && <NotificationSystem userId={currentUser.id} />}
+
+      {/* Profile Settings Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Profile Form - Import ProfileSettings component */}
+            <div className="p-4">
+              <ProfileSettings
+                currentUser={currentUser}
+                onUpdate={(updatedUser) => {
+                  setCurrentUser(updatedUser);
+                  setShowProfileModal(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default App;
+

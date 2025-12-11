@@ -270,12 +270,21 @@ export interface AILog {
 
 export interface User {
   id: string;
+  email?: string;
   full_name: string;
+  name?: string; // Alias for full_name
   phone?: string;
   role: UserRole;
   facility_id?: string;
   avatar?: string;
   privacySettings?: PrivacySettings;
+  // Admin fields
+  is_blocked?: boolean;
+  blocked_reason?: string;
+  blocked_at?: string;
+  blocked_by?: string;
+  last_active_at?: string;
+  created_at?: string;
 }
 
 export interface Notification {
@@ -285,3 +294,207 @@ export interface Notification {
   read: boolean;
   type: 'STOCK_UPDATE' | 'PRESCRIPTION_STATUS' | 'GENERAL';
 }
+
+// =============================================
+// ADMIN DASHBOARD TYPES
+// =============================================
+
+export type AuthEventType =
+  | 'login_success'
+  | 'login_failed'
+  | 'logout'
+  | 'password_reset_request'
+  | 'password_reset_complete'
+  | 'session_expired'
+  | 'token_refresh'
+  | 'mfa_enabled'
+  | 'mfa_disabled';
+
+export interface AuthEvent {
+  id: string;
+  user_id?: string;
+  event_type: AuthEventType;
+  ip_address?: string;
+  user_agent?: string;
+  success: boolean;
+  failure_reason?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  // Joined data
+  user?: { full_name: string; email?: string };
+}
+
+export type MetricCategory =
+  | 'auth'
+  | 'business'
+  | 'performance'
+  | 'security'
+  | 'compliance'
+  | 'system'
+  | 'user'
+  | 'ai';
+
+export interface SystemMetric {
+  id: string;
+  metric_category: MetricCategory;
+  metric_name: string;
+  metric_value: number;
+  metric_unit?: string;
+  facility_id?: string;
+  recorded_at: string;
+}
+
+export interface FeatureFlag {
+  id: string;
+  flag_name: string;
+  flag_description?: string;
+  is_enabled: boolean;
+  applies_to_roles: string[];
+  applies_to_facilities: string[];
+  metadata?: Record<string, any>;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SecuritySeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type SecurityEventType =
+  | 'suspicious_activity'
+  | 'blocked_ip'
+  | 'permission_violation'
+  | 'rate_limit_exceeded'
+  | 'invalid_token'
+  | 'brute_force_attempt'
+  | 'unusual_location';
+
+export interface SecurityEvent {
+  id: string;
+  event_type: SecurityEventType;
+  user_id?: string;
+  ip_address?: string;
+  severity: SecuritySeverity;
+  description?: string;
+  metadata?: Record<string, any>;
+  resolved: boolean;
+  resolved_by?: string;
+  resolved_at?: string;
+  created_at: string;
+  // Joined data
+  user?: { full_name: string; email?: string };
+}
+
+export interface AdminMetricsSummary {
+  // User counts
+  total_patients: number;
+  total_pharmacists: number;
+  total_admins: number;
+  blocked_users: number;
+  active_24h: number;
+  active_7d: number;
+  // Prescription counts
+  prescriptions_24h: number;
+  pending_prescriptions: number;
+  approved_prescriptions: number;
+  // Auth events
+  logins_24h: number;
+  failed_logins_24h: number;
+  // Security
+  unresolved_security_events: number;
+  critical_security_events: number;
+  // Facilities
+  total_facilities: number;
+}
+
+// =============================================
+// DOSESPOT COMPLIANCE MODELS
+// =============================================
+
+export interface PatientAllergy {
+  id: string;
+  patient_id: string;
+  allergen: string;
+  reaction?: string;
+  severity: 'MILD' | 'MODERATE' | 'SEVERE';
+  status: 'ACTIVE' | 'INACTIVE';
+  created_at: string;
+  created_by?: string;
+}
+
+export interface PrescriberFavorite {
+  id: string;
+  user_id: string;
+  nickname: string;
+  drug_name: string;
+  dosage: string;
+  frequency?: string;
+  notes?: string;
+}
+
+// ==========================================
+// CLINICAL DRUG DATABASE (ZEML)
+// ==========================================
+
+export interface ClinicalDrug {
+  id: string;
+  name: string;
+  description?: string;
+  mechanism_of_action?: string;
+  storage_handling?: string;
+  overdosage_management?: string;
+  ven_category?: 'V' | 'E' | 'N';
+  aware_category?: 'Access' | 'Watch' | 'Reserve';
+  category_id?: string;
+
+  // Rich Text Monograph Fields
+  indications_text?: string;
+  contraindications_text?: string;
+  adverse_effects_text?: string;
+  dosage_text?: string;
+  geriatric_use_text?: string;
+  pediatric_use_text?: string;
+  pregnancy_use_text?: string;
+  overdose_text?: string;
+  storage_text?: string;
+
+  // Joins
+  category?: { name: string };
+  presentations?: ClinicalPresentation[];
+  indications?: ClinicalIndication[];
+  contraindications?: ClinicalContraindication[];
+  interactions?: ClinicalInteraction[];
+}
+
+export interface ClinicalPresentation {
+  id: string;
+  drug_id: string;
+  form: string;
+  strength: string;
+  unit?: string;
+  packaging?: string;
+}
+
+export interface ClinicalIndication {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface ClinicalContraindication {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface ClinicalInteraction {
+  id: string;
+  drug_id_1: string;
+  drug_id_2: string | null;
+  interacting_entity_name?: string; // For class/external interactions
+  interaction_type?: string; // 'CRITICAL-INTRA', etc.
+  severity: 'MILD' | 'MODERATE' | 'SEVERE' | 'CONTRAINDICATED';
+  description?: string;
+  other_drug_name?: string; // Helper for UI
+}
+
