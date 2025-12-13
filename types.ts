@@ -498,3 +498,187 @@ export interface ClinicalInteraction {
   other_drug_name?: string; // Helper for UI
 }
 
+// ==========================================
+// PRESCRIBER DASHBOARD MODELS
+// ==========================================
+
+export enum PrescriberRole {
+  DOCTOR = 'doctor',
+  NURSE = 'nurse',
+  PHYSICIAN_ASSISTANT = 'physician_assistant'
+}
+
+export interface PrescriberProfile {
+  id: string;
+  user_id: string;
+  prescriber_role: PrescriberRole;
+  dea_number?: string; // For controlled substances
+  npi: string; // National Provider Identifier
+  license_number: string;
+  license_state: string;
+  facility_ids?: string[]; // Optional facility associations
+  created_at: string;
+  updated_at: string;
+}
+
+export type MedicationStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED';
+
+export interface PatientMedication {
+  id: string;
+  patient_id: string;
+  drug_id?: string; // Links to clinical_drugs
+  drug_name: string;
+  dosage: string;
+  frequency: string;
+  route?: string; // e.g., "oral", "IV", "topical"
+  status: MedicationStatus;
+  start_date: string;
+  end_date?: string;
+  prescribed_by?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PrescriptionDraftStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'SENT';
+
+export interface PrescriptionDraft {
+  id: string;
+  patient_id: string;
+  prescriber_id: string;
+  drug_id?: string;
+  drug_name: string;
+  strength: string;
+  dosage_form: string; // e.g., "Tablet", "Capsule", "Syrup"
+  directions: string; // Patient directions, max 1000 chars
+  dispense_quantity: number;
+  dispense_unit: string;
+  refills: number;
+  days_supply: number; // Required for EPCS
+  effective_date: string; // Required for EPCS
+  no_substitution: boolean;
+  diagnosis_codes?: string[]; // ICD or CDT codes (mandatory for controlled substances)
+  pharmacy_id?: string;
+  facility_id?: string; // Optional: prescriber can select facility or leave null
+  status: PrescriptionDraftStatus;
+  is_controlled: boolean; // Requires EPCS PIN
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  fax?: string;
+  ncpdp_id?: string; // National Council for Prescription Drug Programs ID
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PatientPreferredPharmacy {
+  id: string;
+  patient_id: string;
+  pharmacy_id: string;
+  is_primary: boolean;
+  created_at: string;
+  // Joined data
+  pharmacy?: Pharmacy;
+}
+
+export type TransmissionStatus = 'SENDING' | 'SENT' | 'VERIFIED' | 'FAILED';
+
+export interface TransmissionLog {
+  id: string;
+  prescription_id: string;
+  pharmacy_id: string;
+  status: TransmissionStatus;
+  error_message?: string;
+  transmitted_at?: string;
+  verified_at?: string;
+  created_at: string;
+  // Joined data
+  pharmacy?: Pharmacy;
+}
+
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface RxChangeRequest {
+  id: string;
+  prescription_id: string;
+  old_pharmacy_id?: string;
+  new_pharmacy_id: string;
+  requested_by: string;
+  status: RequestStatus;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  notes?: string;
+  created_at: string;
+  // Joined data
+  old_pharmacy?: Pharmacy;
+  new_pharmacy?: Pharmacy;
+}
+
+export interface RefillRequest {
+  id: string;
+  patient_id: string;
+  medication_id: string;
+  requested_at: string;
+  status: RequestStatus;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  notes?: string;
+  // Joined data
+  medication?: PatientMedication;
+  patient?: { full_name: string };
+}
+
+export interface PrescriberPin {
+  id: string;
+  user_id: string;
+  pin_hash: string; // Encrypted
+  failed_attempts: number;
+  is_locked: boolean;
+  last_used_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Comprehensive patient context for prescribers
+export interface PatientContext {
+  patient: User;
+  allergies: PatientAllergy[];
+  active_medications: PatientMedication[];
+  inactive_medications: PatientMedication[];
+  preferred_pharmacies: PatientPreferredPharmacy[];
+  recent_prescriptions: PrescriptionDraft[];
+}
+
+// Enhanced interaction alert with source
+export interface EnhancedInteractionAlert extends InteractionAlert {
+  source: 'Database' | 'AI Analysis';
+  recommendation?: string;
+}
+
+// Special population warning
+export interface SpecialPopulationWarning {
+  population: 'Geriatric' | 'Pediatric' | 'Pregnancy' | 'Lactation';
+  drug_name: string;
+  severity: 'CAUTION' | 'WARNING' | 'CONTRAINDICATED';
+  description: string;
+  recommendation?: string;
+}
+
+// Mandatory monitoring alert
+export interface MonitoringAlert {
+  drug_name: string;
+  monitoring_type: 'Hepatotoxic' | 'Neurotoxic' | 'Cytotoxic' | 'Vesicant' | 'Other';
+  description: string;
+  required_tests?: string[];
+  frequency?: string;
+}
+
