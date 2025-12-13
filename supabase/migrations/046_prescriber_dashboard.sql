@@ -40,7 +40,24 @@ CREATE TABLE IF NOT EXISTS public.patient_medications (
 );
 
 -- =============================================
--- 3. PRESCRIPTION DRAFTS (Pending → Approval → Send)
+-- 3. PHARMACIES
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.pharmacies (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    zip TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    fax TEXT,
+    ncpdp_id TEXT, -- National Council for Prescription Drug Programs ID
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =============================================
+-- 4. PRESCRIPTION DRAFTS (Pending → Approval → Send)
 -- =============================================
 CREATE TABLE IF NOT EXISTS public.prescription_drafts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -62,23 +79,6 @@ CREATE TABLE IF NOT EXISTS public.prescription_drafts (
     facility_id UUID REFERENCES public.facilities(id), -- Optional: prescriber can select facility or leave null
     status TEXT CHECK (status IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT')) DEFAULT 'DRAFT',
     is_controlled BOOLEAN DEFAULT FALSE, -- Requires EPCS PIN
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- =============================================
--- 4. PHARMACIES
--- =============================================
-CREATE TABLE IF NOT EXISTS public.pharmacies (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name TEXT NOT NULL,
-    address TEXT NOT NULL,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL,
-    zip TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    fax TEXT,
-    ncpdp_id TEXT, -- National Council for Prescription Drug Programs ID
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

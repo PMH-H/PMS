@@ -5,7 +5,8 @@ export enum UserRole {
   SUPER_ADMIN_BMS = 'super_admin_bms',
   SUPER_ADMIN_DEV = 'super_admin_dev',
   WORKER = 'worker',        // Deprecated: treated as pharmacist
-  CASHIER = 'cashier'       // Deprecated: treated as pharmacist
+  CASHIER = 'cashier',       // Deprecated: treated as pharmacist
+  PRESCRIBER = 'prescriber'
 }
 
 // Helper function to normalize roles (worker/cashier → pharmacist)
@@ -43,6 +44,7 @@ export function getRoleDisplayName(role: UserRole): string {
     case UserRole.ADMIN: return 'Shop Owner';
     case UserRole.SUPER_ADMIN_BMS: return 'BMS Administrator';
     case UserRole.SUPER_ADMIN_DEV: return 'System Administrator';
+    case UserRole.PRESCRIBER: return 'Prescriber';
     default: return role;
   }
 }
@@ -682,3 +684,23 @@ export interface MonitoringAlert {
   frequency?: string;
 }
 
+export interface PrescriberDashboardData {
+  patient_lookups: number;
+  prescriptions_written: number;
+  refills_approved: number;
+  refills_denied: number;
+  pending_refill_requests: number;
+  pending_prescription_requests: number;
+  active_patients: number;
+  inactive_patients: number;
+  recent_activity: PrescriberActivity[];
+}
+
+export type PrescriberActivityType = 'PRESCRIPTION' | 'REFILL' | 'PATIENT_LOOKUP';
+
+export interface PrescriberActivity {
+  id: string;
+  type: PrescriberActivityType;
+  timestamp: string;
+  details: string;
+}

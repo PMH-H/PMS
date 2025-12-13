@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { Prescription, PrescriptionStatus, User, Medication } from '../types';
 import PatientAllergies from './PatientAllergies';
+import { useNotifications } from '../hooks/useNotifications';
+import { createAuditLog } from '../services/database';
 
 interface PrescriptionManagerProps {
     currentUser: User;
@@ -14,16 +16,19 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
     const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
     const [actionNotes, setActionNotes] = useState('');
+    const { success, error, info } = useNotifications();
 
     useEffect(() => {
         fetchPrescriptions();
 
-        // Real-time subscription
         const subscription = supabase
             .channel('prescriptions_changes')
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'prescriptions' },
-                () => {
+                (payload) => {
+                    if(payload.eventType === 'INSERT') {
+                        info('A new prescription has been submitted.');
+                    }
                     fetchPrescriptions();
                 }
             )
@@ -49,7 +54,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 `)
                 .order('created_at', { ascending: false });
 
-            // Filter by status
             if (activeTab !== 'ALL') {
                 query = query.ilike('status', activeTab);
             }
@@ -60,24 +64,12 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 throw error;
             }
 
-            console.log('Fetched prescriptions:', data);
-
-            // Map data to include patientName
             const mapped = (data || []).map(p => ({
                 ...p,
                 patientName: (p as any).patient?.full_name || 'Unknown Patient'
             }));
 
-            // Filter by facility if provided (do it client-side after fetch)
-            // TEMPORARY: Relaxed filter for debugging. Showing all prescriptions.
-            const filtered = mapped;
-            /* 
-            const filtered = facilityId
-                ? mapped.filter(p => (p as any).patient?.facility_id === facilityId)
-                : mapped;
-            */
-
-            setPrescriptions(filtered);
+            setPrescriptions(mapped);
         } catch (error) {
             console.error('Error fetching prescriptions:', error);
         } finally {
@@ -99,12 +91,18 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             if (error) throw error;
 
+            await createAuditLog({
+                action: 'Prescription approved',
+                userId: currentUser.id,
+                details: `Prescription ID: ${prescriptionId}`
+            });
+            success('Prescription approved successfully');
             setSelectedPrescription(null);
             setActionNotes('');
             fetchPrescriptions();
-        } catch (error) {
-            console.error('Error approving prescription:', error);
-            alert('Failed to approve prescription');
+        } catch (err) {
+            console.error('Error approving prescription:', err);
+            error('Failed to approve prescription');
         }
     };
 
@@ -127,12 +125,18 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             if (error) throw error;
 
+            await createAuditLog({
+                action: 'Prescription rejected',
+                userId: currentUser.id,
+                details: `Prescription ID: ${prescriptionId}`
+            });
+            success('Prescription rejected successfully');
             setSelectedPrescription(null);
             setActionNotes('');
             fetchPrescriptions();
-        } catch (error) {
-            console.error('Error rejecting prescription:', error);
-            alert('Failed to reject prescription');
+        } catch (err) {
+            console.error('Error rejecting prescription:', err);
+            error('Failed to reject prescription');
         }
     };
 
@@ -156,13 +160,11 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div>
                 <h2 className="text-2xl font-bold text-gray-900">Prescription Management</h2>
                 <p className="text-sm text-gray-500">Review and manage patient prescriptions</p>
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200">
                 {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map(tab => (
                     <button
@@ -181,7 +183,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 ))}
             </div>
 
-            {/* Prescription List */}
             <div className="grid grid-cols-1 gap-4">
                 {prescriptions.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
@@ -209,7 +210,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                         Uploaded: {new Date(prescription.created_at).toLocaleString()}
                                     </p>
 
-                                    {/* Medication Summary */}
                                     <div className="text-sm text-gray-600 mb-2">
                                         {prescription.medications && prescription.medications.length > 0 ? (
                                             <div className="flex items-start gap-2">
@@ -241,7 +241,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                         )}
                                     </div>
 
-                                    {/* Notes */}
                                     {prescription.notes && (
                                         <div className="bg-gray-50 p-3 rounded-lg mt-3">
                                             <p className="text-xs font-bold text-gray-500 uppercase mb-1">Notes:</p>
@@ -250,7 +249,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                     )}
                                 </div>
 
-                                {/* Actions */}
                                 <div className="flex gap-2 ml-4">
                                     <button
                                         onClick={() => setSelectedPrescription(prescription)}
@@ -265,7 +263,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 )}
             </div>
 
-            {/* Detail Modal */}
             {
                 selectedPrescription && (
                     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSelectedPrescription(null)}>
@@ -273,7 +270,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                             className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4 sm:p-6 md:p-8 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
                             onClick={e => e.stopPropagation()}
                         >
-                            {/* Header with close button */}
                             <div className="flex items-center justify-between mb-4 sm:mb-6">
                                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Prescription Details</h3>
                                 <button
@@ -286,7 +282,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </button>
                             </div>
 
-                            {/* Info Grid - Stacks on mobile */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                                 <div className="bg-gray-50 p-3 rounded-lg">
                                     <p className="text-xs font-bold text-gray-500 uppercase">Patient</p>
@@ -310,7 +305,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 )}
                             </div>
 
-                            {/* Prescription Image - Smaller on mobile */}
                             {selectedPrescription.image_url && (
                                 <div className="mb-4 sm:mb-6">
                                     <p className="text-xs font-bold text-gray-500 uppercase mb-2">Prescription Image</p>
@@ -326,14 +320,12 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </div>
                             )}
 
-                            {/* Patient Allergies - Critical Safety Info */}
                             {selectedPrescription.patient_id && (
                                 <div className="mb-4 sm:mb-6">
                                     <PatientAllergies patientId={selectedPrescription.patient_id} readOnly={true} />
                                 </div>
                             )}
 
-                            {/* Clinical Safety Check Results */}
                             {selectedPrescription.interactions && selectedPrescription.interactions.length > 0 && (
                                 <div className="mb-4 sm:mb-6 border border-red-200 rounded-xl overflow-hidden">
                                     <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center gap-2">
@@ -351,7 +343,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </div>
                             )}
 
-                            {/* Medications */}
                             {selectedPrescription.medications && selectedPrescription.medications.length > 0 && (
                                 <div className="mb-4 sm:mb-6">
                                     <p className="text-xs font-bold text-gray-500 uppercase mb-2">Medications</p>
@@ -366,7 +357,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </div>
                             )}
 
-                            {/* Action Section (only for PENDING) */}
                             {selectedPrescription.status === 'PENDING' && (
                                 <div className="border-t border-gray-200 pt-4 sm:pt-6">
                                     <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-2">Notes (optional for approval, required for rejection)</label>
@@ -378,7 +368,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                         placeholder="Add notes about this prescription..."
                                     />
 
-                                    {/* Buttons - Stack on mobile */}
                                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <button
                                             onClick={() => handleApprove(selectedPrescription.id)}
@@ -396,7 +385,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </div>
                             )}
 
-                            {/* Close button for non-pending */}
                             {selectedPrescription.status !== 'PENDING' && (
                                 <button
                                     onClick={() => setSelectedPrescription(null)}

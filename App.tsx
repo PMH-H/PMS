@@ -13,6 +13,8 @@ const PharmacistDashboard = React.lazy(() => import('@/pages/PharmacistDashboard
 const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
 const SuperAdminDashboard = React.lazy(() => import('@/pages/SuperAdminDashboard'));
 const DevDashboard = React.lazy(() => import('@/pages/DevDashboard'));
+const PrescriberDashboard = React.lazy(() => import('@/components/prescriber/PrescriberDashboard'));
+
 import { supabase } from '@/services/supabase';
 import {
   getItems,
@@ -25,12 +27,13 @@ import {
   createSearchLog,
   createAuditLog
 } from '@/services/database';
-import { UserRole, User, Prescription, Notification, Drug, DrugBatch, Sale, AuditLog, SearchLog, InventoryItem } from '@/types';
+import { UserRole, User, Prescription, Notification, Drug, DrugBatch, Sale, AuditLog, SearchLog, InventoryItem, PrescriberProfile } from '@/types';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [prescriberProfile, setPrescriberProfile] = useState<PrescriberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [pendingUserData, setPendingUserData] = useState<{ userId: string; email: string } | null>(null);
@@ -45,6 +48,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
+    setPrescriberProfile(null);
     setDrugs([]); setBatches([]); setSales([]); setPrescriptions([]); setNotifications([]);
   };
 
@@ -55,9 +59,6 @@ const App: React.FC = () => {
     (table, payload) => {
       if (currentUser) {
         console.log(`Realtime update on ${table}:`, payload);
-        // Refetch all data to ensure consistency (especially for joined tables)
-        // We pass the current state values to avoid stale closures if we used them, 
-        // but fetchAllData uses arguments, so it's fine.
         fetchAllData(currentUser.role, currentUser.id, currentUser.facility_id);
       }
     }
@@ -76,6 +77,7 @@ const App: React.FC = () => {
           fetchUserProfile(session.user.id, session.user.email || '');
         } else if (!session?.user && currentUser) {
           setCurrentUser(null);
+          setPrescriberProfile(null);
         }
       });
       return () => subscription.unsubscribe();
@@ -100,6 +102,21 @@ const App: React.FC = () => {
           privacySettings: data.preferences || {}
         };
         setCurrentUser(user);
+
+        if (user.role === UserRole.PRESCRIBER) {
+          const { data: profile, error: profileError } = await supabase
+            .from('prescriber_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+            
+          if (profileError && profileError.code !== 'PGRST116') {
+             console.error("Error fetching prescriber profile:", profileError);
+          } else {
+             setPrescriberProfile(profile as PrescriberProfile);
+          }
+        }
+
         await fetchAllData(user.role, user.id, user.facility_id);
       } else {
         setPendingUserData({ userId, email });
@@ -109,12 +126,15 @@ const App: React.FC = () => {
       console.error("Error fetching user profile:", err);
       await supabase.auth.signOut();
       setCurrentUser(null);
+      setPrescriberProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchAllData = async (role: UserRole, userId: string, facilityId?: string) => {
+    if (role === UserRole.PRESCRIBER) return;
+
     const [itemsResult, patientPrescriptionsResult] = await Promise.allSettled([
       getItems(),
       role === UserRole.CUSTOMER ? getPrescriptions(userId) : Promise.resolve([])
@@ -144,7 +164,6 @@ const App: React.FC = () => {
       setSales(newSales);
       setNotifications(newNotifications as Notification[]);
 
-      // Combine patient and facility prescriptions, ensuring no duplicates
       const combined = [...prescriptions, ...facilityRxs];
       setPrescriptions(Array.from(new Map(combined.map(p => [p.id, p])).values()));
     }
@@ -157,7 +176,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (loading) {
@@ -173,7 +191,6 @@ const App: React.FC = () => {
   const renderDashboard = () => {
     const commonProps = { currentUser: currentUser!, onUpdateUser: setCurrentUser };
 
-    // Defensive check to prevent crashes if `drugs` or `batches` are not ready
     const safeDrugs = Array.isArray(drugs) ? drugs : [];
     const safeBatches = Array.isArray(batches) ? batches : [];
 
@@ -194,6 +211,11 @@ const App: React.FC = () => {
         return <SuperAdminDashboard {...commonProps} />;
       case UserRole.SUPER_ADMIN_DEV:
         return <DevDashboard {...commonProps} />;
+      case UserRole.PRESCRIBER:
+        if (!prescriberProfile) {
+            return <div className="flex items-center justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div><div>Loading prescriber profile...</div></div>; 
+        }
+        return <PrescriberDashboard {...commonProps} prescriberProfile={prescriberProfile} />;
       default:
         return <div>Unsupported role. Please contact support.</div>;
     }
@@ -214,14 +236,12 @@ const App: React.FC = () => {
       {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
       {currentUser && <NotificationSystem userId={currentUser.id} />}
 
-      {/* Profile Settings Modal */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
           <div
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
               <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
               <button
@@ -233,7 +253,6 @@ const App: React.FC = () => {
                 </svg>
               </button>
             </div>
-            {/* Profile Form - Import ProfileSettings component */}
             <div className="p-4">
               <ProfileSettings
                 currentUser={currentUser}
@@ -251,4 +270,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-

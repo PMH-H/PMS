@@ -25,17 +25,14 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
 
         setLoading(true);
         try {
-            // Load metrics
             const { data: metricsData } = await getPharmacistMetrics(userId);
             if (metricsData && metricsData.length > 0) {
                 setMetrics(metricsData[0]);
             }
 
-            // Load patients
             const { data: patientsData } = await getPatientsByPharmacist(userId);
             setPatients(patientsData);
 
-            // Load recent prescriptions
             const { data: rxData } = await supabase
                 .from('prescriptions')
                 .select('*, patient:profiles!prescriptions_patient_id_fkey(full_name)')
@@ -53,7 +50,18 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
 
     useEffect(() => {
         loadData();
-    }, [loadData]);
+
+        const channel = supabase
+            .channel('pharmacist-metrics-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'prescriptions', filter: `approved_by=eq.${userId}` }, (payload) => {
+                loadData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [loadData, userId]);
 
     if (loading) {
         return (
@@ -71,7 +79,6 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200 pb-2">
                 {tabs.map(tab => (
                     <button
@@ -88,10 +95,8 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
                 ))}
             </div>
 
-            {/* Overview Tab */}
             {activeTab === 'overview' && (
                 <div className="space-y-6">
-                    {/* KPI Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white">
                             <p className="text-xs font-medium text-emerald-100 uppercase">Active Patients</p>
@@ -115,9 +120,7 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
                         </div>
                     </div>
 
-                    {/* Performance Summary */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Approval Stats */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h3 className="font-bold text-gray-900 mb-4">Prescription Status</h3>
                             <div className="space-y-4">
@@ -160,7 +163,6 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
                             ) : null}
                         </div>
 
-                        {/* Quick Stats */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h3 className="font-bold text-gray-900 mb-4">Facility Info</h3>
                             <div className="space-y-3">
@@ -186,7 +188,6 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
                 </div>
             )}
 
-            {/* Patients Tab */}
             {activeTab === 'patients' && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-200 flex justify-between items-center">
@@ -248,7 +249,6 @@ const PharmacistMetricsPanel: React.FC<PharmacistMetricsPanelProps> = ({
                 </div>
             )}
 
-            {/* Activity Tab */}
             {activeTab === 'activity' && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-200">
