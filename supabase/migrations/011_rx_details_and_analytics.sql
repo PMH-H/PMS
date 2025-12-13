@@ -173,6 +173,7 @@ ALTER TABLE ai_prediction_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE data_retention_settings ENABLE ROW LEVEL SECURITY;
 
 -- prescription_history policies (FIXED - removed facility_id references)
+DROP POLICY IF EXISTS "Users view own prescription history" ON prescription_history;
 CREATE POLICY "Users view own prescription history"
 ON prescription_history FOR SELECT
 USING (
@@ -189,6 +190,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Staff create prescription history" ON prescription_history;
 CREATE POLICY "Staff create prescription history"
 ON prescription_history FOR INSERT
 WITH CHECK (
@@ -200,6 +202,7 @@ WITH CHECK (
 );
 
 -- prescription_notes policies (FIXED - removed facility_id references)
+DROP POLICY IF EXISTS "Users view prescription notes" ON prescription_notes;
 CREATE POLICY "Users view prescription notes"
 ON prescription_notes FOR SELECT
 USING (
@@ -216,6 +219,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Staff add prescription notes" ON prescription_notes;
 CREATE POLICY "Staff add prescription notes"
 ON prescription_notes FOR INSERT
 WITH CHECK (
@@ -233,6 +237,7 @@ WITH CHECK (
 );
 
 -- ai_prediction_feedback policies
+DROP POLICY IF EXISTS "Pharmacists provide AI feedback" ON ai_prediction_feedback;
 CREATE POLICY "Pharmacists provide AI feedback"
 ON ai_prediction_feedback FOR INSERT
 WITH CHECK (
@@ -242,6 +247,7 @@ WITH CHECK (
     )
 );
 
+DROP POLICY IF EXISTS "Admins view AI feedback" ON ai_prediction_feedback;
 CREATE POLICY "Admins view AI feedback"
 ON ai_prediction_feedback FOR SELECT
 USING (
@@ -252,6 +258,7 @@ USING (
 );
 
 -- data_retention_settings policies
+DROP POLICY IF EXISTS "Admins manage retention settings" ON data_retention_settings;
 CREATE POLICY "Admins manage retention settings"
 ON data_retention_settings FOR ALL
 USING (
@@ -287,6 +294,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS retention_settings_changed ON data_retention_settings;
 CREATE TRIGGER retention_settings_changed
 AFTER UPDATE ON data_retention_settings
 FOR EACH ROW

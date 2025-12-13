@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS articles (
     content TEXT NOT NULL,
     author TEXT,
     image_url TEXT,
-    created_at TIMESTAMTz DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- RLS for articles

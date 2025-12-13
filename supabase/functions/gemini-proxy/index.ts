@@ -20,11 +20,21 @@ const safeParseJson = (text: string) => {
   }
 };
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   if (!GEMINI_API_KEY) {
     return new Response(JSON.stringify({ error: 'Server misconfiguration: missing GEMINI_API_KEY' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -34,7 +44,7 @@ serve(async (req) => {
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -43,7 +53,7 @@ serve(async (req) => {
   if (!action) {
     return new Response(JSON.stringify({ error: 'Missing action' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -57,7 +67,7 @@ serve(async (req) => {
       case 'chat': {
         const { message, role } = payload ?? {};
         const systemInstruction =
-          role === 'PHARMACIST'
+          role === 'pharmacist'
             ? 'You are a helpful assistant for a pharmacist. You help with drug info, stock logic, and detailed medical interaction explanations. Be professional and concise.'
             : 'You are a helpful health assistant for a patient. You explain medications simply. Always advise consulting a real doctor or pharmacist for medical advice. Do not diagnose. Keep answers short and easy to read on mobile.';
 
@@ -69,7 +79,7 @@ serve(async (req) => {
         textResult = result?.response?.text?.() ?? String(result?.response ?? '');
         // Return simple string for chat
         return new Response(JSON.stringify({ response: textResult }), {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -78,7 +88,7 @@ serve(async (req) => {
         if (!base64Image) {
           return new Response(JSON.stringify({ error: 'Missing base64Image payload' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
@@ -97,7 +107,7 @@ serve(async (req) => {
         textResult = result?.response?.text?.();
         const parsed = textResult ? safeParseJson(textResult) : null;
         return new Response(JSON.stringify({ response: parsed }), {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -106,7 +116,7 @@ serve(async (req) => {
         if (!drugImage) {
           return new Response(JSON.stringify({ error: 'Missing base64Image payload' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
@@ -128,7 +138,7 @@ serve(async (req) => {
         textResult = result?.response?.text?.();
         const parsed = textResult ? safeParseJson(textResult) : null;
         return new Response(JSON.stringify({ response: parsed }), {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -137,7 +147,7 @@ serve(async (req) => {
         if (!Array.isArray(medications)) {
           return new Response(JSON.stringify({ error: 'Missing medications array' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
@@ -157,7 +167,7 @@ serve(async (req) => {
         textResult = result?.response?.text?.();
         const parsed = textResult ? safeParseJson(textResult) : null;
         return new Response(JSON.stringify({ response: parsed }), {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -166,7 +176,7 @@ serve(async (req) => {
         if (!symptomDescription) {
           return new Response(JSON.stringify({ error: 'Missing symptomDescription' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
@@ -187,14 +197,14 @@ serve(async (req) => {
         textResult = result?.response?.text?.();
         const parsed = textResult ? safeParseJson(textResult) : null;
         return new Response(JSON.stringify({ response: parsed }), {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       default: {
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
@@ -202,7 +212,7 @@ serve(async (req) => {
     console.error('gemini-proxy error:', error);
     return new Response(JSON.stringify({ error: error?.message ?? String(error) }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

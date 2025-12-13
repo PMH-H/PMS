@@ -1,4 +1,4 @@
-// PharmAI PWA Service Worker
+`// PharmAI PWA Service Worker
 const CACHE_NAME = 'pharmai-v1';
 const OFFLINE_URL = '/offline.html';
 
@@ -46,12 +46,23 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
+    // Ignore non-web schemes
+    if (!url.protocol.startsWith('http')) {
+        return; // This will fix the 'chrome-extension' error
+    }
+
     // Skip non-GET requests
     if (request.method !== 'GET') {
         return;
     }
 
-    // Network First strategy for API calls (Supabase)
+    // For auth requests, always go network-only. Do not cache.
+    if (url.hostname.includes('supabase.co') && url.pathname.includes('/auth/')) {
+        event.respondWith(fetch(request)); // This will fix the 403 Forbidden error
+        return;
+    }
+
+    // Network First strategy for other API calls
     if (url.hostname.includes('supabase.co')) {
         event.respondWith(networkFirstStrategy(request));
         return;
@@ -71,7 +82,6 @@ async function cacheFirstStrategy(request) {
 
         const networkResponse = await fetch(request);
 
-        // Cache successful responses
         if (networkResponse && networkResponse.status === 200) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
@@ -80,12 +90,9 @@ async function cacheFirstStrategy(request) {
         return networkResponse;
     } catch (error) {
         console.error('[SW] Cache First error:', error);
-
-        // Return offline page for navigation requests
         if (request.mode === 'navigate') {
             return caches.match(OFFLINE_URL);
         }
-
         throw error;
     }
 }
@@ -95,7 +102,6 @@ async function networkFirstStrategy(request) {
     try {
         const networkResponse = await fetch(request);
 
-        // Cache successful responses
         if (networkResponse && networkResponse.status === 200) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
@@ -104,12 +110,10 @@ async function networkFirstStrategy(request) {
         return networkResponse;
     } catch (error) {
         console.log('[SW] Network failed, trying cache:', request.url);
-
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
         }
-
         throw error;
     }
 }

@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Drug, DrugBatch, SaleItem, User, UserRole, InventoryAdjustment, Sale, Medication, EntryMethod } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
+import ProfileSettings from './ProfileSettings';
+import NewsFeed from '../components/NewsFeed';
 import { extractDrugDetails, analyzePrescriptionImage } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 
 interface DispensaryDashboardProps {
     currentUser: User;
+    onUpdateUser?: (user: User) => void;
     drugs: Drug[];
     batches: DrugBatch[];
     sales?: Sale[];
@@ -18,9 +21,9 @@ interface DispensaryDashboardProps {
 }
 
 const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
-    currentUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onUpdateDrug, onDeleteDrug, onAddBatch, onReconcile
+    currentUser, onUpdateUser, drugs, batches, sales = [], onProcessSale, onCreateDrug, onUpdateDrug, onDeleteDrug, onAddBatch, onReconcile
 }) => {
-    const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS'>('POS');
+    const [activeTab, setActiveTab] = useState<'POS' | 'INVENTORY' | 'RECONCILE' | 'REPORTS' | 'NEWS' | 'PROFILE'>('POS');
 
     // -- POS State --
     const [cart, setCart] = useState<SaleItem[]>([]);
@@ -413,6 +416,23 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
     const todaySales = sales.filter(s => s.created_at.split('T')[0] === new Date().toISOString().split('T')[0]);
     const todayTotal = todaySales.reduce((sum, s) => sum + s.total_price, 0);
 
+    const renderProfile = () => (
+        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <h2 className="text-2xl font-bold text-slate-900">Dispensary Profile</h2>
+
+            {currentUser && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <ProfileSettings
+                        currentUser={currentUser}
+                        onUpdate={(updatedUser) => {
+                            onUpdateUser?.(updatedUser);
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px] flex flex-col relative w-full">
 
@@ -433,7 +453,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                     <h2 className="text-xl font-bold tracking-wide">Dispensary Module</h2>
                 </div>
                 <div className="flex gap-2 text-sm font-semibold w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-                    {['POS', 'INVENTORY', 'RECONCILE', 'REPORTS'].map(tab => (
+                    {['POS', 'INVENTORY', 'RECONCILE', 'REPORTS', 'NEWS', 'PROFILE'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -797,6 +817,11 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                     </div>
                 )}
 
+                {/* --- NEWS TAB --- */}
+                {activeTab === 'NEWS' && (
+                    <NewsFeed />
+                )}
+
                 {/* --- RECONCILIATION TAB --- */}
                 {activeTab === 'RECONCILE' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
@@ -902,6 +927,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
                         )}
                     </div>
                 )}
+
+                {/* --- PROFILE TAB --- */}
+                {activeTab === 'PROFILE' && renderProfile()}
             </div>
 
             {/* --- MODALS --- */}
