@@ -148,9 +148,12 @@ export const prescriberService = {
     if (medError) throw new Error(medError.message);
     if (!medication) throw new Error('Medication not found');
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not found");
+
     const draft: Omit<PrescriptionDraft, 'id' | 'created_at' | 'updated_at'> = {
         patient_id: medication.patient_id,
-        prescriber_id: supabase.auth.user()!.id,
+        prescriber_id: user.id,
         drug_name: medication.drug_name,
         strength: medication.dosage,
         dosage_form: '', // This might need to be looked up

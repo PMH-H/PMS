@@ -1,4 +1,11 @@
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'dotlottie-wc': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { src?: string; autoplay?: boolean; loop?: boolean; style?: React.CSSProperties }, HTMLElement>;
+    }
+  }
+}
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
@@ -179,13 +186,22 @@ const App: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <dotlottie-wc
+          src="https://lottie.host/d2f497fb-70bb-4c87-833e-ff90caf7c9eb/Rl8upijqbt.lottie"
+          style={{ width: '300px', height: '300px' }}
+          autoplay
+          loop
+        ></dotlottie-wc>
+      </div>
+    );
   }
 
   if (!currentUser) {
     return showProfileSetup && pendingUserData ?
       <ProfileSetup userId={pendingUserData.userId} email={pendingUserData.email} onProfileCreated={handleProfileCreated} /> :
-      <Login />;
+      <Login onLoginSuccess={() => fetchUserProfile(supabase.auth.getUser().id, supabase.auth.getUser().email)} />;
   }
 
   const renderDashboard = () => {
@@ -204,9 +220,9 @@ const App: React.FC = () => {
       case UserRole.CUSTOMER:
         return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={notifications} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
-        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
+        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} notifications={notifications} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
       case UserRole.ADMIN:
-        return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
+        return <AdminDashboard {...commonProps} inventory={drugs} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
       case UserRole.SUPER_ADMIN_BMS:
         return <SuperAdminDashboard {...commonProps} />;
       case UserRole.SUPER_ADMIN_DEV:
