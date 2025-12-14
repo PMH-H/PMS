@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { Prescription, PrescriptionStatus, User, Medication } from '../types';
+import PatientAllergies from './PatientAllergies';
+import { useNotifications } from '../hooks/useNotifications';
+import { createAuditLog } from '../services/database';
 
 interface PrescriptionManagerProps {
     currentUser: User;
@@ -13,16 +16,19 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
     const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
     const [actionNotes, setActionNotes] = useState('');
+    const { success, error, info } = useNotifications();
 
     useEffect(() => {
         fetchPrescriptions();
 
-        // Real-time subscription
         const subscription = supabase
             .channel('prescriptions_changes')
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'prescriptions' },
-                () => {
+                (payload) => {
+                    if(payload.eventType === 'INSERT') {
+                        info('A new prescription has been submitted.');
+                    }
                     fetchPrescriptions();
                 }
             )
@@ -48,7 +54,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 `)
                 .order('created_at', { ascending: false });
 
-            // Filter by status
             if (activeTab !== 'ALL') {
                 query = query.ilike('status', activeTab);
             }
@@ -59,24 +64,12 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 throw error;
             }
 
-            console.log('Fetched prescriptions:', data);
-
-            // Map data to include patientName
             const mapped = (data || []).map(p => ({
                 ...p,
                 patientName: (p as any).patient?.full_name || 'Unknown Patient'
             }));
 
-            // Filter by facility if provided (do it client-side after fetch)
-            // TEMPORARY: Relaxed filter for debugging. Showing all prescriptions.
-            const filtered = mapped;
-            /* 
-            const filtered = facilityId
-                ? mapped.filter(p => (p as any).patient?.facility_id === facilityId)
-                : mapped;
-            */
-
-            setPrescriptions(filtered);
+            setPrescriptions(mapped);
         } catch (error) {
             console.error('Error fetching prescriptions:', error);
         } finally {
@@ -98,12 +91,18 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             if (error) throw error;
 
+            await createAuditLog({
+                action: 'Prescription approved',
+                userId: currentUser.id,
+                details: `Prescription ID: ${prescriptionId}`
+            });
+            success('Prescription approved successfully');
             setSelectedPrescription(null);
             setActionNotes('');
             fetchPrescriptions();
-        } catch (error) {
-            console.error('Error approving prescription:', error);
-            alert('Failed to approve prescription');
+        } catch (err) {
+            console.error('Error approving prescription:', err);
+            error('Failed to approve prescription');
         }
     };
 
@@ -126,12 +125,18 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             if (error) throw error;
 
+            await createAuditLog({
+                action: 'Prescription rejected',
+                userId: currentUser.id,
+                details: `Prescription ID: ${prescriptionId}`
+            });
+            success('Prescription rejected successfully');
             setSelectedPrescription(null);
             setActionNotes('');
             fetchPrescriptions();
-        } catch (error) {
-            console.error('Error rejecting prescription:', error);
-            alert('Failed to reject prescription');
+        } catch (err) {
+            console.error('Error rejecting prescription:', err);
+            error('Failed to reject prescription');
         }
     };
 
@@ -155,13 +160,11 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div>
                 <h2 className="text-2xl font-bold text-gray-900">Prescription Management</h2>
                 <p className="text-sm text-gray-500">Review and manage patient prescriptions</p>
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200">
                 {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map(tab => (
                     <button
@@ -180,7 +183,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 ))}
             </div>
 
-            {/* Prescription List */}
             <div className="grid grid-cols-1 gap-4">
                 {prescriptions.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
@@ -208,7 +210,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                         Uploaded: {new Date(prescription.created_at).toLocaleString()}
                                     </p>
 
-                                    {/* Medication Summary */}
                                     <div className="text-sm text-gray-600 mb-2">
                                         {prescription.medications && prescription.medications.length > 0 ? (
                                             <div className="flex items-start gap-2">
@@ -240,7 +241,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                         )}
                                     </div>
 
-                                    {/* Notes */}
                                     {prescription.notes && (
                                         <div className="bg-gray-50 p-3 rounded-lg mt-3">
                                             <p className="text-xs font-bold text-gray-500 uppercase mb-1">Notes:</p>
@@ -249,7 +249,6 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                     )}
                                 </div>
 
-                                {/* Actions */}
                                 <div className="flex gap-2 ml-4">
                                     <button
                                         onClick={() => setSelectedPrescription(prescription)}
@@ -264,44 +263,55 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                 )}
             </div>
 
-            {/* Detail Modal */}
             {
                 selectedPrescription && (
-                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPrescription(null)}>
-                        <div className="bg-white rounded-2xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-6">Prescription Details</h3>
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSelectedPrescription(null)}>
+                        <div
+                            className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4 sm:p-6 md:p-8 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Prescription Details</h3>
+                                <button
+                                    onClick={() => setSelectedPrescription(null)}
+                                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                >
+                                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
 
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                <div>
-                                    <p className="text-sm font-bold text-gray-500">Patient</p>
-                                    <p className="text-lg text-gray-900">{selectedPrescription.patientName}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Patient</p>
+                                    <p className="text-base sm:text-lg text-gray-900 font-medium">{selectedPrescription.patientName}</p>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-500">Status</p>
-                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadge(selectedPrescription.status)}`}>
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Status</p>
+                                    <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadge(selectedPrescription.status)}`}>
                                         {selectedPrescription.status}
                                     </span>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-500">Uploaded</p>
-                                    <p className="text-lg text-gray-900">{new Date(selectedPrescription.created_at).toLocaleString()}</p>
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Uploaded</p>
+                                    <p className="text-sm text-gray-900">{new Date(selectedPrescription.created_at).toLocaleString()}</p>
                                 </div>
                                 {selectedPrescription.approved_at && (
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-500">Reviewed</p>
-                                        <p className="text-lg text-gray-900">{new Date(selectedPrescription.approved_at).toLocaleString()}</p>
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <p className="text-xs font-bold text-gray-500 uppercase">Reviewed</p>
+                                        <p className="text-sm text-gray-900">{new Date(selectedPrescription.approved_at).toLocaleString()}</p>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Prescription Image */}
                             {selectedPrescription.image_url && (
-                                <div className="mb-6">
-                                    <p className="text-sm font-bold text-gray-500 mb-2">Prescription Image</p>
+                                <div className="mb-4 sm:mb-6">
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Prescription Image</p>
                                     <img
                                         src={selectedPrescription.image_url}
                                         alt="Prescription"
-                                        className="w-full max-h-96 object-contain rounded-lg border border-gray-200 bg-gray-50"
+                                        className="w-full max-h-48 sm:max-h-72 md:max-h-96 object-contain rounded-lg border border-gray-200 bg-gray-50"
                                         onError={(e) => {
                                             console.error('Image failed to load:', selectedPrescription.image_url);
                                             (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%239ca3af" font-size="16"%3EImage not available%3C/text%3E%3C/svg%3E';
@@ -310,64 +320,75 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 </div>
                             )}
 
-                            {/* Medications */}
-                            {selectedPrescription.medications && selectedPrescription.medications.length > 0 && (
-                                <div className="mb-6">
-                                    <p className="text-sm font-bold text-gray-500 mb-2">Medications</p>
-                                    <div className="bg-gray-50 p-4 rounded-lg">
-                                        {selectedPrescription.medications.map((med, idx) => (
-                                            <div key={idx} className="mb-2 last:mb-0">
-                                                <p className="font-bold text-gray-900">{med.name}</p>
-                                                <p className="text-sm text-gray-600">Dosage: {med.dosage} | Frequency: {med.frequency}</p>
+                            {selectedPrescription.patient_id && (
+                                <div className="mb-4 sm:mb-6">
+                                    <PatientAllergies patientId={selectedPrescription.patient_id} readOnly={true} />
+                                </div>
+                            )}
+
+                            {selectedPrescription.interactions && selectedPrescription.interactions.length > 0 && (
+                                <div className="mb-4 sm:mb-6 border border-red-200 rounded-xl overflow-hidden">
+                                    <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center gap-2">
+                                        <span className="text-xl">⚠️</span>
+                                        <h4 className="font-bold text-red-900 text-sm">Clinical Safety Alerts (AI)</h4>
+                                    </div>
+                                    <div className="p-4 bg-white space-y-2">
+                                        {selectedPrescription.interactions.map((alert: any, idx: number) => (
+                                            <div key={idx} className="p-2 bg-red-50 border border-red-100 rounded text-sm text-red-800">
+                                                <strong>{alert.medicationA} + {alert.medicationB}</strong>: <span className="uppercase text-xs font-bold bg-red-200 px-1 rounded">{alert.severity}</span>
+                                                <div className="text-xs mt-1 text-red-700">{alert.description}</div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Action Section (only for PENDING) */}
+                            {selectedPrescription.medications && selectedPrescription.medications.length > 0 && (
+                                <div className="mb-4 sm:mb-6">
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Medications</p>
+                                    <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-2">
+                                        {selectedPrescription.medications.map((med, idx) => (
+                                            <div key={idx} className="pb-2 last:pb-0 border-b last:border-b-0 border-gray-200">
+                                                <p className="font-bold text-gray-900 text-sm sm:text-base">{med.name}</p>
+                                                <p className="text-xs sm:text-sm text-gray-600">Dosage: {med.dosage} | Frequency: {med.frequency}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {selectedPrescription.status === 'PENDING' && (
-                                <div className="border-t border-gray-200 pt-6">
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Notes (optional for approval, required for rejection)</label>
+                                <div className="border-t border-gray-200 pt-4 sm:pt-6">
+                                    <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-2">Notes (optional for approval, required for rejection)</label>
                                     <textarea
                                         value={actionNotes}
                                         onChange={e => setActionNotes(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        className="w-full border border-gray-300 rounded-lg p-3 mb-3 sm:mb-4 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                                         rows={3}
                                         placeholder="Add notes about this prescription..."
                                     />
 
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <button
                                             onClick={() => handleApprove(selectedPrescription.id)}
-                                            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700"
+                                            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors text-sm sm:text-base"
                                         >
-                                            Approve
+                                            ✓ Approve
                                         </button>
                                         <button
                                             onClick={() => handleReject(selectedPrescription.id)}
-                                            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700"
+                                            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition-colors text-sm sm:text-base"
                                         >
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedPrescription(null);
-                                                setActionNotes('');
-                                            }}
-                                            className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300"
-                                        >
-                                            Close
+                                            ✗ Reject
                                         </button>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Close button for non-pending */}
                             {selectedPrescription.status !== 'PENDING' && (
                                 <button
                                     onClick={() => setSelectedPrescription(null)}
-                                    className="w-full mt-6 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300"
+                                    className="w-full mt-4 sm:mt-6 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
                                 >
                                     Close
                                 </button>

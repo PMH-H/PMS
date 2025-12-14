@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { User } from '../types';
+import { createAuditLog } from '../services/database';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface CustomerOrder {
     id: string;
@@ -28,11 +30,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'pending' | 'preparing' | 'ready'>('all');
     const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
+    const { success, error, info } = useNotifications();
 
     useEffect(() => {
         fetchOrders();
 
-        // Subscribe to realtime updates
         const channel = supabase
             .channel('customer_orders_changes')
             .on(
@@ -43,7 +45,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                     table: 'customer_orders',
                     filter: facilityId ? `facility_id=eq.${facilityId}` : undefined
                 },
-                () => {
+                (payload) => {
+                    if(payload.eventType === 'INSERT') {
+                        info('A new order has been placed.');
+                    }
                     fetchOrders();
                 }
             )
@@ -91,10 +96,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                 .eq('id', orderId);
 
             if (error) throw error;
+            await createAuditLog({
+              action: `Order status changed to ${newStatus}`,
+              userId: currentUser.id,
+              details: `Order ID: ${orderId}`
+            });
+            success(`Order status updated to ${newStatus}`);
             fetchOrders();
-        } catch (error) {
-            console.error('Error updating order:', error);
-            alert('Failed to update order status');
+        } catch (err) {
+            console.error('Error updating order:', err);
+            error('Failed to update order status');
         }
     };
 
@@ -106,9 +117,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                 .eq('id', orderId);
 
             if (error) throw error;
+            await createAuditLog({
+              action: `Order assigned`,
+              userId: currentUser.id,
+              details: `Order ID: ${orderId}`
+            });
+            info('Order assigned to you');
             fetchOrders();
-        } catch (error) {
-            console.error('Error assigning order:', error);
+        } catch (err) {
+            console.error('Error assigning order:', err);
+            error('Failed to assign order');
         }
     };
 
@@ -134,7 +152,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
 
     return (
         <div className="space-y-6">
-            {/* Header with filters */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-900">Order Management</h2>
@@ -159,14 +176,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                 </div>
             </div>
 
-            {/* Orders List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {orders.map(order => (
                     <div
                         key={order.id}
                         className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
                     >
-                        {/* Status badge */}
                         <div className="flex justify-between items-start mb-4">
                             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
                                 {order.status.toUpperCase()}
@@ -176,7 +191,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                             </span>
                         </div>
 
-                        {/* Patient info */}
                         <div className="mb-4">
                             <p className="font-bold text-gray-900">
                                 {(order as any).profiles?.full_name || 'Unknown Patient'}
@@ -186,7 +200,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                             </p>
                         </div>
 
-                        {/* Delivery info */}
                         {order.delivery_address && (
                             <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                                 <p className="text-xs font-bold text-gray-500 mb-1">DELIVERY TO:</p>
@@ -197,7 +210,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                             </div>
                         )}
 
-                        {/* Expected delivery */}
                         {order.expected_delivery_date && (
                             <div className="mb-4 text-sm">
                                 <span className="text-gray-500">Expected: </span>
@@ -207,7 +219,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                             </div>
                         )}
 
-                        {/* Actions */}
                         <div className="flex gap-2">
                             {order.status === 'pending' && (
                                 <>

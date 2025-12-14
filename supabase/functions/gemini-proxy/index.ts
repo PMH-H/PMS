@@ -8,8 +8,8 @@ if (!GEMINI_API_KEY) {
   console.error('Missing GEMINI_API_KEY environment variable.');
 }
 
-// Initialize client (note: the library may require a different init; adjust if needed)
-const ai = new GoogleGenerativeAI(GEMINI_API_KEY);
+// Initialize client
+const ai = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
 const safeParseJson = (text: string) => {
   try {
@@ -24,6 +24,10 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Default model and requested model constants
+// We default to the user's requested model for generic queries if available
+const REQUESTED_MODEL = 'gemini-3-pro-preview';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -58,12 +62,54 @@ serve(async (req) => {
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Determine model based on action or payload override
+    let modelName = payload?.model || REQUESTED_MODEL;
+    let model = ai.getGenerativeModel({ model: modelName });
 
     let result: any;
     let textResult: string | undefined;
 
     switch (action) {
+      case 'universal-generate': {
+        // payload: { contents: [], tools: [], thinkingConfig: {}, systemInstruction: string }
+        const { contents, tools, thinkingConfig, systemInstruction } = payload ?? {};
+
+        if (!contents || !Array.isArray(contents)) {
+          return new Response(JSON.stringify({ error: "Missing 'contents' in payload for universal-generate" }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const generateConfig: any = {};
+
+        if (tools) {
+          generateConfig.tools = tools;
+        }
+
+        if (thinkingConfig) {
+          generateConfig.thinkingConfig = thinkingConfig;
+        }
+
+        // Re-initialize model with config if needed
+        model = ai.getGenerativeModel({
+          model: modelName,
+          systemInstruction,
+          tools: tools,
+        });
+
+        result = await model.generateContent({
+          contents,
+          generationConfig: thinkingConfig ? { ...generateConfig, thinkingConfig } : undefined
+        });
+
+        textResult = result?.response?.text?.() ?? String(result?.response ?? '');
+
+        return new Response(JSON.stringify({ response: textResult, raw: result }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'chat': {
         const { message, role } = payload ?? {};
         const systemInstruction =
@@ -71,13 +117,13 @@ serve(async (req) => {
             ? 'You are a helpful assistant for a pharmacist. You help with drug info, stock logic, and detailed medical interaction explanations. Be professional and concise.'
             : 'You are a helpful health assistant for a patient. You explain medications simply. Always advise consulting a real doctor or pharmacist for medical advice. Do not diagnose. Keep answers short and easy to read on mobile.';
 
+        model = ai.getGenerativeModel({ model: modelName, systemInstruction });
+
         result = await model.generateContent({
           contents: [{ role: 'user', parts: [{ text: message || '' }] }],
-          systemInstruction,
         });
 
         textResult = result?.response?.text?.() ?? String(result?.response ?? '');
-        // Return simple string for chat
         return new Response(JSON.stringify({ response: textResult }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -91,6 +137,9 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        // Use the powerful model for image analysis
+        model = ai.getGenerativeModel({ model: modelName });
 
         result = await model.generateContent({
           contents: [
@@ -119,6 +168,8 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        model = ai.getGenerativeModel({ model: modelName });
 
         result = await model.generateContent({
           contents: [

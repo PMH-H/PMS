@@ -9,6 +9,7 @@ import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import AuditLogViewer from '../components/AuditLogViewer';
 import PromotionManager from '../components/PromotionManager';
 import PrescriptionManager from '../components/PrescriptionManager';
+import AdminStaffPanel from '../components/AdminStaffPanel';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend
@@ -29,7 +30,7 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
     currentUser, onUpdateUser, logs, users, sales, auditLogs, inventory, batches, searchLogs
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'ANALYTICS' | 'PROCUREMENT' | 'PROMOTIONS' | 'PRESCRIPTIONS' | 'COMPLIANCE' | 'PROFILE'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STAFF' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'ANALYTICS' | 'PROCUREMENT' | 'PROMOTIONS' | 'PRESCRIPTIONS' | 'COMPLIANCE' | 'PROFILE'>('OVERVIEW');
 
     // --- Computed Metrics ---
 
@@ -380,7 +381,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <p className="text-slate-500">Shop Owner View</p>
                 </div>
                 <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200 overflow-x-auto">
-                    {(['OVERVIEW', 'SALES', 'INVENTORY', 'INSIGHTS', 'ANALYTICS', 'PROCUREMENT', 'PROMOTIONS', 'PRESCRIPTIONS', 'COMPLIANCE', 'PROFILE'] as const).map(tab => (
+                    {(['OVERVIEW', 'STAFF', 'SALES', 'INVENTORY', 'INSIGHTS', 'ANALYTICS', 'PROCUREMENT', 'PROMOTIONS', 'PRESCRIPTIONS', 'COMPLIANCE', 'PROFILE'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -394,6 +395,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {activeTab === 'OVERVIEW' && renderOverview()}
+            {activeTab === 'STAFF' && currentUser && (
+                <AdminStaffPanel currentUser={currentUser} />
+            )}
             {activeTab === 'SALES' && renderSales()}
             {activeTab === 'INVENTORY' && renderInventory()}
             {activeTab === 'INSIGHTS' && renderInsights()}

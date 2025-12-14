@@ -5,7 +5,7 @@
 import { supabase } from './supabase';
 import type {
     Drug, DrugBatch, Sale, SaleItem, InventoryAdjustment,
-    AuditLog, SearchLog, User, Notification, Prescription
+    AuditLog, SearchLog, User, Notification, Prescription, PatientAllergy
 } from '../types';
 
 // =====================================================
@@ -120,5 +120,39 @@ export const processSale = async (facilityId: string, items: SaleItem[], custome
     if (saleError) throw saleError;
     // FEFO Logic for stock update would go here...
     return sale;
+};
+
+// =============================================
+// PATIENT ALLERGIES
+// =============================================
+export const getPatientAllergies = async (patientId: string) => {
+    const { data, error } = await supabase
+        .from('patient_allergies')
+        .select('*')
+        .eq('patient_id', patientId)
+        .eq('status', 'ACTIVE') // Only active allergies
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+};
+
+export const addPatientAllergy = async (allergy: Partial<PatientAllergy>) => {
+    const payload = { ...allergy, status: 'ACTIVE' };
+    const { data, error } = await supabase
+        .from('patient_allergies')
+        .insert([payload])
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const removePatientAllergy = async (id: string) => {
+    const { error } = await supabase
+        .from('patient_allergies')
+        .update({ status: 'INACTIVE' })
+        .eq('id', id);
+    if (error) throw error;
 };
 

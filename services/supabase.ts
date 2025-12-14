@@ -51,6 +51,19 @@ export const signIn = async (email: string, password: string) => {
         email,
         password,
     });
+
+    // Log auth event (non-blocking)
+    try {
+        const { logAuthEvent } = await import('./metricsService');
+        if (error) {
+            logAuthEvent(null, 'login_failed', false, { email }, error.message);
+        } else if (data.user) {
+            logAuthEvent(data.user.id, 'login_success', true, { email });
+        }
+    } catch (e) {
+        console.warn('Failed to log auth event:', e);
+    }
+
     return { data, error };
 };
 
@@ -66,7 +79,21 @@ export const signUp = async (email: string, password: string, metadata?: any) =>
 };
 
 export const signOut = async () => {
+    // Get current user before signing out to log the event
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase.auth.signOut();
+
+    // Log logout event (non-blocking)
+    try {
+        const { logAuthEvent } = await import('./metricsService');
+        if (!error && user) {
+            logAuthEvent(user.id, 'logout', true);
+        }
+    } catch (e) {
+        console.warn('Failed to log auth event:', e);
+    }
+
     return { error };
 };
 
