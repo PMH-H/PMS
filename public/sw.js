@@ -1,5 +1,5 @@
-`// PharmAI PWA Service Worker
-const CACHE_NAME = 'pharmai-v1';
+// PharmAI PWA Service Worker
+const CACHE_NAME = `pharmai-v1-${new Date().getTime()}`;
 const OFFLINE_URL = '/offline.html';
 
 // Assets to cache on install
@@ -67,36 +67,26 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Cache First strategy for static assets
-    event.respondWith(cacheFirstStrategy(request));
+    // Stale-While-Revalidate for static assets
+    event.respondWith(staleWhileRevalidateStrategy(request));
 });
 
-// Cache First Strategy - Fast loading, works offline
-async function cacheFirstStrategy(request) {
+// Stale-While-Revalidate Strategy
+async function staleWhileRevalidateStrategy(request) {
     if (!request.url.startsWith('http')) {
         return fetch(request);
     }
-    try {
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(request);
 
-        const networkResponse = await fetch(request);
-
+    const fetchPromise = fetch(request).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
         }
-
         return networkResponse;
-    } catch (error) {
-        console.error('[SW] Cache First error:', error);
-        if (request.mode === 'navigate') {
-            return caches.match(OFFLINE_URL);
-        }
-        throw error;
-    }
+    });
+
+    return cachedResponse || fetchPromise;
 }
 
 // Network First Strategy - Always fresh data, fallback to cache
