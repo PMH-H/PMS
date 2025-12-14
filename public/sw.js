@@ -6,7 +6,6 @@ const OFFLINE_URL = '/offline.html';
 const urlsToCache = [
     '/',
     '/index.html',
-    '/index.css',
     '/manifest.json',
     OFFLINE_URL
 ];
@@ -74,6 +73,9 @@ self.addEventListener('fetch', (event) => {
 
 // Cache First Strategy - Fast loading, works offline
 async function cacheFirstStrategy(request) {
+    if (!request.url.startsWith('http')) {
+        return fetch(request);
+    }
     try {
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
@@ -99,6 +101,9 @@ async function cacheFirstStrategy(request) {
 
 // Network First Strategy - Always fresh data, fallback to cache
 async function networkFirstStrategy(request) {
+    if (!request.url.startsWith('http')) {
+        return fetch(request);
+    }
     try {
         const networkResponse = await fetch(request);
 
@@ -126,3 +131,4 @@ self.addEventListener('message', (event) => {
 });
 
 console.log('[SW] Service Worker loaded successfully!');
+`

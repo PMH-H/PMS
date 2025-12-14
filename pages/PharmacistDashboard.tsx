@@ -6,9 +6,11 @@ import Messaging from '../components/Messaging';
 import PurchaseOrderManager from '../components/PurchaseOrderManager';
 import OrderManagement from '../components/OrderManagement';
 import PrescriptionManager from '../components/PrescriptionManager';
+import PharmacistMetricsPanel from '../components/PharmacistMetricsPanel';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
 import { analyzePrescriptionImage, checkDrugInteractions, optimizeInventoryLevels } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
+import ClinicalDrugDirectory from '../components/ClinicalDrugDirectory';
 
 interface PharmacistDashboardProps {
     currentUser?: User;
@@ -44,7 +46,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     onReconcileInventory,
     onAddPrescription
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'PRESCRIPTIONS' | 'COUNTING' | 'NEWS' | 'PROFILE'>('OVERVIEW');
+    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'METRICS' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'PRESCRIPTIONS' | 'COUNTING' | 'NEWS' | 'FORMULARY'>('OVERVIEW');
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
@@ -482,19 +484,30 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     return (
         <div className="space-y-4 md:space-y-6 p-2 md:p-0">
 
-            {/* Header / Tabs */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1 md:p-2">
+            {/* Header / Tabs with Icons */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 sm:p-2">
                 <div className="flex overflow-x-auto scrollbar-hide gap-1">
-                    {(['OVERVIEW', 'STOCK', 'PROCUREMENT', 'ORDERS', 'PRESCRIPTIONS', 'COUNTING', 'NEWS', 'PROFILE'] as const).map(tab => (
+                    {([
+                        { key: 'OVERVIEW', label: 'Overview', icon: '📊' },
+                        { key: 'METRICS', label: 'My Performance', icon: '📈' },
+                        { key: 'STOCK', label: 'Stock', icon: '📦' },
+                        { key: 'PROCUREMENT', label: 'Procure', icon: '🛒' },
+                        { key: 'ORDERS', label: 'Orders', icon: '📋' },
+                        { key: 'PRESCRIPTIONS', label: 'Rx', icon: '💊' },
+                        { key: 'COUNTING', label: 'Count', icon: '🔢' },
+                        { key: 'NEWS', label: 'News', icon: '📰' },
+                        { key: 'FORMULARY', label: 'Formulary', icon: '📚' },
+                    ] as const).map(tab => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`flex-shrink-0 px-3 md:px-4 py-2 md:py-3 rounded-lg text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key as any)}
+                            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.key
                                 ? 'bg-indigo-100 text-indigo-700 shadow-sm'
                                 : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                         >
-                            {tab === 'STOCK' ? 'STOCK' : tab === 'PROCUREMENT' ? 'PROCURE' : tab}
+                            <span className="text-base sm:text-lg">{tab.icon}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
                         </button>
                     ))}
                 </div>
@@ -503,6 +516,9 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
             {/* Content Area */}
             <div className="min-h-[500px]">
                 {activeTab === 'OVERVIEW' && renderOverview()}
+                {activeTab === 'METRICS' && currentUser && (
+                    <PharmacistMetricsPanel currentUser={currentUser} />
+                )}
                 {activeTab === 'STOCK' && renderStockTable()}
                 {activeTab === 'PROCUREMENT' && currentUser && (
                     <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />
@@ -515,7 +531,11 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 )}
                 {activeTab === 'COUNTING' && renderCounting()}
                 {activeTab === 'NEWS' && <NewsFeed />}
-                {activeTab === 'PROFILE' && renderProfile()}
+                {activeTab === 'FORMULARY' && (
+                    <div className="h-[600px]">
+                        <ClinicalDrugDirectory />
+                    </div>
+                )}
             </div>
 
             {/* Inventory Modal (Add/Edit) */}

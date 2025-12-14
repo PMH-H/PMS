@@ -1,12 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
-import { PharmacyNode, MarketTrend, Prediction } from '../types';
+import { MarketTrend, Prediction, User } from '../types';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend, ComposedChart, Area
 } from 'recharts';
 import { generateMarketReport } from '../services/geminiService';
 import { getAllFacilities, getRegionalAggregates, getCategoryTrends, FacilityMetrics } from '../services/bmsService';
+import BusinessMetricsPanel from '../components/BusinessMetricsPanel';
+import UserAdminTable from '../components/UserAdminTable';
+import AuditLogViewer from '../components/AuditLogViewer';
+import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
+
+interface SuperAdminDashboardProps {
+    currentUser?: User;
+}
 
 // --- MOCK DATA FOR PREDICTIONS (AI-generated, not facility-specific) ---
 const MOCK_PREDICTIONS: Prediction[] = [
@@ -15,12 +22,25 @@ const MOCK_PREDICTIONS: Prediction[] = [
     { id: 'pr3', type: 'PRICE_SPIKE', title: 'Insulin Cost Increase', probability: 90, description: 'Global supply chain disruption predicted to raise import costs by 15%.', impactLevel: 'HIGH', targetDate: 'Dec 2023' },
 ];
 
-const SuperAdminDashboard: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MARKET' | 'FORECAST' | 'GOVERNANCE'>('OVERVIEW');
+type TabKey = 'OVERVIEW' | 'PLATFORM' | 'OPERATIONS' | 'MARKET' | 'FORECAST' | 'FACILITIES' | 'USERS' | 'COMPLIANCE';
+
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }) => {
+    const [activeTab, setActiveTab] = useState<TabKey>('OVERVIEW');
     const [aiSummary, setAiSummary] = useState<string>('Loading executive summary...');
     const [facilities, setFacilities] = useState<FacilityMetrics[]>([]);
     const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const tabs: { key: TabKey; label: string; icon: string }[] = [
+        { key: 'OVERVIEW', label: 'Overview', icon: '📊' },
+        { key: 'PLATFORM', label: 'Platform', icon: '🌐' },
+        { key: 'OPERATIONS', label: 'Operations', icon: '⚙️' },
+        { key: 'MARKET', label: 'Market', icon: '📈' },
+        { key: 'FORECAST', label: 'Forecast', icon: '🔮' },
+        { key: 'FACILITIES', label: 'Facilities', icon: '🏥' },
+        { key: 'USERS', label: 'Users', icon: '👥' },
+        { key: 'COMPLIANCE', label: 'Compliance', icon: '📋' },
+    ];
 
     // Fetch real data on mount
     useEffect(() => {
@@ -37,9 +57,9 @@ const SuperAdminDashboard: React.FC = () => {
                 const formattedTrends: MarketTrend[] = trends.map((t, i) => ({
                     id: `t${i}`,
                     category: t.category,
-                    region: 'National', // Aggregated nationally
-                    demandIndex: Math.min(100, t.totalSold), // Simplified
-                    supplyIndex: 100 - Math.min(100, t.totalSold), // Inverse for demo
+                    region: 'National',
+                    demandIndex: Math.min(100, t.totalSold),
+                    supplyIndex: 100 - Math.min(100, t.totalSold),
                     avgPrice: t.avgPrice,
                     month: t.month
                 }));
@@ -64,7 +84,6 @@ const SuperAdminDashboard: React.FC = () => {
         setFacilities(prev => prev.map(f =>
             f.id === id ? { ...f, dataSharingEnabled: !f.dataSharingEnabled } : f
         ));
-        // TODO: Call updateFacilityDataSharing from bmsService
     };
 
     const antibioticsData = marketTrends.filter(t => t.category === 'Antibiotics' || t.category === 'A');
@@ -88,26 +107,77 @@ const SuperAdminDashboard: React.FC = () => {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Active Nodes</p>
                     <p className="text-3xl font-bold text-slate-900 mt-2">{facilities.filter(f => f.isActive).length}/{facilities.length}</p>
+                    <p className="text-xs text-gray-400 mt-1">Connected facilities</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Data Stream Vol</p>
                     <p className="text-3xl font-bold text-indigo-600 mt-2">1.2TB</p>
+                    <p className="text-xs text-gray-400 mt-1">This month</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Avg Compliance</p>
                     <p className="text-3xl font-bold text-emerald-600 mt-2">
                         {facilities.length > 0 ? Math.round(facilities.reduce((a, b) => a + b.complianceScore, 0) / facilities.length) : 0}%
                     </p>
+                    <p className="text-xs text-gray-400 mt-1">Network score</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                     <p className="text-xs font-bold text-gray-500 uppercase">Risk Index</p>
                     <p className="text-3xl font-bold text-red-500 mt-2">High</p>
+                    <p className="text-xs text-gray-400 mt-1">3 critical alerts</p>
                 </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="font-bold text-gray-900 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button
+                        onClick={() => setActiveTab('OPERATIONS')}
+                        className="flex flex-col items-center gap-2 p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
+                    >
+                        <span className="text-2xl">📊</span>
+                        <span className="text-sm font-medium text-indigo-700">View Operations</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('FACILITIES')}
+                        className="flex flex-col items-center gap-2 p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors"
+                    >
+                        <span className="text-2xl">🏥</span>
+                        <span className="text-sm font-medium text-emerald-700">Manage Facilities</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('MARKET')}
+                        className="flex flex-col items-center gap-2 p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors"
+                    >
+                        <span className="text-2xl">📈</span>
+                        <span className="text-sm font-medium text-purple-700">Market Analysis</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('COMPLIANCE')}
+                        className="flex flex-col items-center gap-2 p-4 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors"
+                    >
+                        <span className="text-2xl">📋</span>
+                        <span className="text-sm font-medium text-amber-700">Audit Logs</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderOperations = () => (
+        <div className="animate-in fade-in duration-300">
+            <BusinessMetricsPanel />
+        </div>
+    );
+
+    const renderPlatform = () => (
+        <div className="animate-in fade-in duration-300">
+            <PlatformMetricsPanel currentUser={currentUser} />
         </div>
     );
 
@@ -149,7 +219,7 @@ const SuperAdminDashboard: React.FC = () => {
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="font-bold text-slate-900 mb-4">Regional Shortage Heatmap (Text Mode)</h3>
+                <h3 className="font-bold text-slate-900 mb-4">Regional Shortage Heatmap</h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {['Lusaka', 'Copperbelt', 'Southern', 'Eastern', 'Northern'].map(region => (
                         <div key={region} className={`p-4 rounded-lg border ${region === 'Southern' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
@@ -201,7 +271,7 @@ const SuperAdminDashboard: React.FC = () => {
         </div>
     );
 
-    const renderGovernance = () => (
+    const renderFacilities = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -245,9 +315,9 @@ const SuperAdminDashboard: React.FC = () => {
                                     <td className="px-6 py-4">
                                         <button
                                             onClick={() => toggleDataSharing(facility.id)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-200`}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${facility.dataSharingEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
                                         >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-1`} />
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${facility.dataSharingEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                                         </button>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500">{facility.lastAuditDate || 'N/A'}</td>
@@ -260,33 +330,80 @@ const SuperAdminDashboard: React.FC = () => {
         </div>
     );
 
-    return (
-        <div className="pb-10">
-            <div className="bg-slate-900 text-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-8 mb-8">
-                <div className="max-w-7xl mx-auto">
-                    <h1 className="text-3xl font-bold mb-2">BMS Command Center</h1>
-                    <p className="text-slate-400">National Health Strategy & Supply Chain Analytics</p>
+    const renderUsers = () => (
+        <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-lg font-bold">User Management</h3>
+                        <p className="text-sm text-indigo-100">View and manage all platform users across facilities</p>
+                    </div>
+                </div>
+            </div>
+            <UserAdminTable />
+        </div>
+    );
 
-                    <div className="flex gap-4 mt-6 overflow-x-auto pb-2 scrollbar-hide">
-                        {['OVERVIEW', 'MARKET', 'FORECAST', 'GOVERNANCE'].map(tab => (
+    const renderCompliance = () => (
+        <div className="animate-in fade-in duration-300">
+            <AuditLogViewer />
+        </div>
+    );
+
+    return (
+        <div className="pb-10 min-h-screen">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-6 mb-6 shadow-xl">
+                <div className="max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold mb-1 flex items-center gap-3">
+                                <span className="text-3xl">🏛️</span>
+                                BMS Command Center
+                            </h1>
+                            <p className="text-slate-400 text-sm">
+                                National Health Strategy • Supply Chain Analytics • Operations
+                            </p>
+                        </div>
+
+                        {/* Status Indicators */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/50 border border-emerald-700 rounded-full">
+                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                <span className="text-xs font-medium text-emerald-300">{facilities.filter(f => f.isActive).length} Nodes Active</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
+                        {tabs.map(tab => (
                             <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab as any)}
-                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab ? 'bg-indigo-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeTab === tab.key
+                                    ? 'bg-white text-slate-900 shadow-lg'
+                                    : 'text-slate-300 hover:bg-slate-700/50'
                                     }`}
                             >
-                                {tab}
+                                <span className="text-base">{tab.icon}</span>
+                                <span className="hidden sm:inline">{tab.label}</span>
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto">
+            {/* Content */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {activeTab === 'OVERVIEW' && renderOverview()}
+                {activeTab === 'PLATFORM' && renderPlatform()}
+                {activeTab === 'OPERATIONS' && renderOperations()}
                 {activeTab === 'MARKET' && renderMarket()}
                 {activeTab === 'FORECAST' && renderForecast()}
-                {activeTab === 'GOVERNANCE' && renderGovernance()}
+                {activeTab === 'FACILITIES' && renderFacilities()}
+                {activeTab === 'USERS' && renderUsers()}
+                {activeTab === 'COMPLIANCE' && renderCompliance()}
             </div>
         </div>
     );

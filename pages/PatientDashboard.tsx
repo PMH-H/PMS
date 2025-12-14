@@ -5,9 +5,12 @@ import ProfileSettings from './ProfileSettings';
 import NewsFeed from '../components/NewsFeed';
 import ChatAssistant from '../components/ChatAssistant';
 import PrescriptionUpload from '../components/PrescriptionUpload';
+import PrescriptionDetailView from '../components/PrescriptionDetailView';
+import NewsWidget from '../components/NewsWidget';
 import Messaging from '../components/Messaging';
 import NotificationToast from '../components/NotificationToast';
 import OrderHistory from '../components/OrderHistory';
+import ProductCatalog from '../components/ProductCatalog';
 import { useNotifications } from '../hooks/useNotifications';
 import { Medication, Prescription, PrescriptionStatus, Notification, Drug, DrugBatch, PrivacySettings, User, UserRole } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
@@ -41,74 +44,64 @@ const MessagesIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 
 const ProfileIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
 const OrdersIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>;
 
-// --- MODAL COMPONENT ---
-const PrescriptionPreviewModal: React.FC<{ prescription: Prescription; onClose: () => void }> = ({ prescription, onClose }) => (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={onClose}>
-        <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Prescription Details</h2>
 
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${prescription.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{prescription.status}</span>
-                    <span className="text-sm text-slate-500">Date: {prescription.date}</span>
-                </div>
+const SymptomChecker: React.FC<{ onLogSearch: (term: string, type: 'SYMPTOM') => void }> = ({ onLogSearch }) => {
+  const [symptom, setSymptom] = useState('');
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    onLogSearch(symptom, 'SYMPTOM');
+    try {
+      const analysis = await analyzeSymptomInput(symptom);
+      setResult(analysis);
+    } catch (error) {
+      setResult('Error analyzing symptoms. Please try again.');
+    }
+    setLoading(false);
+  };
 
-                {(prescription as any).notes && (
-                    <div className={`p-4 rounded-lg border ${prescription.status === 'REJECTED' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
-                        <h3 className={`font-bold text-sm mb-1 ${prescription.status === 'REJECTED' ? 'text-red-800' : 'text-blue-800'}`}>
-                            {prescription.status === 'REJECTED' ? 'Rejection Reason / Notes:' : 'Pharmacist Notes:'}
-                        </h3>
-                        <p className={`text-sm ${prescription.status === 'REJECTED' ? 'text-red-700' : 'text-blue-700'}`}>
-                            {(prescription as any).notes}
-                        </p>
-                    </div>
-                )}
-
-                {(prescription.imageUrl || (prescription as any).image_url) && (
-                    <div>
-                        <h3 className="font-semibold text-slate-800 mb-2">Original Prescription Image</h3>
-                        <img
-                            src={prescription.imageUrl || (prescription as any).image_url}
-                            alt="Prescription"
-                            className="rounded-lg border border-gray-200 w-full max-h-96 object-contain bg-gray-50"
-                            onError={(e) => {
-                                console.error('Image failed to load in patient view');
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%239ca3af" font-size="16"%3EImage not available%3C/text%3E%3C/svg%3E';
-                            }}
-                        />
-                    </div>
-                )}
-
-                <div>
-                    <h3 className="font-semibold text-slate-800 mb-2">Medications</h3>
-                    <ul className="space-y-2">
-                        {prescription.medications.map((med, index) => (
-                            <li key={index} className="p-3 bg-slate-50 rounded-lg flex justify-between">
-                                <span className="font-medium text-slate-800">{med.name}</span>
-                                <span className="text-slate-600">{med.dosage}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </div>
+  return (
+    <div className="bg-white p-4 rounded-xl shadow-sm border">
+      <h3 className="font-bold text-slate-800 mb-3">Symptom Checker</h3>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={symptom}
+          onChange={(e) => setSymptom(e.target.value)}
+          className="w-full p-2 border rounded-lg mb-2"
+          placeholder="Enter your symptoms..."
+        />
+        <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg" disabled={loading}>
+          {loading ? 'Analyzing...' : 'Analyze'}
+        </button>
+      </form>
+      {result && <div className="mt-4 p-2 bg-gray-100 rounded-lg">{result}</div>}
     </div>
-);
+  );
+};
+
+
+// --- MODAL COMPONENT ---
 
 const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     // --- STATE ---
-    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS'>('HOME');
+    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS' | 'PRESCRIPTIONS'>('HOME');
     const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
     const [loadingSettings, setLoadingSettings] = useState(true);
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
     const { toasts, removeToast, success, error, info } = useNotifications();
-    // ... other states
+    const [localNotifications, setLocalNotifications] = useState<Notification[]>(props.notifications);
+
 
     // --- EFFECTS ---
     useEffect(() => {
-        // ... fetchSettings logic remains the same ...
+      setLocalNotifications(props.notifications);
+    },[props.notifications])
+
+    useEffect(() => {
         const fetchSettings = async () => {
             setLoadingSettings(true);
             try {
@@ -117,13 +110,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 if (data && data.settings) {
                     setDashboardSettings(data.settings as DashboardSettings);
                 } else {
-                    // Default settings if not found or error
                     const defaultSettings: DashboardSettings = {
                         widgets: [{ id: 'w1', component: 'Header', gridSpan: 2 }, { id: 'w2', component: 'Notifications', gridSpan: 2 }, { id: 'w3', component: 'Prescriptions', gridSpan: 2 }, { id: 'w4', component: 'UploadRx', gridSpan: 1 }, { id: 'w5', component: 'SymptomChecker', gridSpan: 1 },]
                     };
-
-                    // Only try to insert if it was a "not found" error (PGRST116) or no error, 
-                    // NOT if it was a permission error (406/401/403)
                     if (!error) {
                         const { error: insertError } = await supabase.from('dashboard_settings').insert({ user_id: props.currentUser.id, settings: defaultSettings });
                         if (insertError) console.warn("Could not save default settings:", insertError.message);
@@ -144,7 +133,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
         };
         fetchSettings();
 
-        // Subscribe to prescription updates for notifications
         const channel = supabase
             .channel('prescription-updates')
             .on(
@@ -157,13 +145,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 },
                 (payload) => {
                     const updated = payload.new as any;
+                    const newNotification: Notification = { id: generateUUID(), message: '', read: false, timestamp: new Date().toISOString(), type: 'PRESCRIPTION_STATUS' };
                     if (updated.status === 'approved') {
+                        newNotification.message = 'Your prescription has been approved!';
                         success('Your prescription has been approved!');
                     } else if (updated.status === 'declined') {
+                        newNotification.message = 'Your prescription was declined. Please contact the pharmacy.';
                         error('Your prescription was declined. Please contact the pharmacy.');
                     } else if (updated.status === 'dispensed') {
+                        newNotification.message = 'Your prescription has been dispensed and is ready for pickup.';
                         info('Your prescription has been dispensed and is ready for pickup.');
                     }
+                    setLocalNotifications([newNotification, ...localNotifications]);
                 }
             )
             .subscribe();
@@ -187,7 +180,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
         Notifications: (
             <div className="bg-white p-4 rounded-xl shadow-sm border col-span-2">
                 <h3 className="font-bold text-slate-800 mb-3">Recent Updates</h3>
-                {props.notifications.length > 0 ? props.notifications.slice(0, 3).map(n => (
+                {localNotifications.length > 0 ? localNotifications.slice(0, 3).map(n => (
                     <div key={n.id} className={`p-3 rounded-lg flex items-center gap-3 text-sm ${n.read ? '' : 'bg-yellow-50'}`}>
                         <span className={`w-2 h-2 rounded-full ${n.read ? 'bg-gray-300' : 'bg-yellow-500'}`}></span>
                         {n.message}
@@ -208,14 +201,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                                         : 'Prescription Image Uploaded (Click to View)'}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${p.status?.toUpperCase() === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                        p.status?.toUpperCase() === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                            'bg-yellow-100 text-yellow-800'
+                                    p.status?.toUpperCase() === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                        'bg-yellow-100 text-yellow-800'
                                     }`}>
                                     {p.status}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className='text-xs text-slate-500'>{p.date}</span>
+                                <span className='text-xs text-slate-500'>{new Date(p.created_at).toLocaleDateString()}</span>
                                 <span className="text-xs text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">View Details →</span>
                             </div>
                         </button>)
@@ -228,23 +221,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                     userId={props.currentUser.id}
                     onUploadComplete={(id) => {
                         success('Prescription uploaded successfully!');
-                        // Optionally refetch prescriptions here
+                        props.logAIAction('upload-prescription', `Prescription uploaded: ${id}`, 'SUCCESS');
                     }}
-                    onError={(err) => error(err)}
+                    onError={(err) => {
+                      error(err)
+                      props.logAIAction('upload-prescription', err, 'ERROR');
+                    }}
                 />
             </div>
         ),
         SymptomChecker: (
-            <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setActiveTab('ASSISTANT')} className="bg-green-50 hover:bg-green-100 text-green-700 p-3 rounded-xl border border-green-200 text-center transition-colors">
-                    <h4 className="font-bold text-sm">AI Assistant</h4>
-                    <p className="text-xs">Ask health questions</p>
-                </button>
-                <button onClick={() => setActiveTab('NEWS')} className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-xl border border-blue-200 text-center transition-colors">
-                    <h4 className="font-bold text-sm">Health News</h4>
-                    <p className="text-xs">Latest updates</p>
-                </button>
-            </div>
+          <SymptomChecker onLogSearch={props.onLogSearch} />
         )
     };
 
@@ -263,7 +250,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
             }
         </div>
     );
-    const renderShop = () => <div>Shop Content</div>;
+    const renderShop = () => <ProductCatalog inventory={props.inventory} />;
     const renderAssistant = () => <div className="h-[600px]"><ChatAssistant role={UserRole.CUSTOMER} embedded /></div>;
     const renderNews = () => <NewsFeed />;
 
@@ -275,10 +262,12 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     const renderProfile = () => <ProfileSettings currentUser={props.currentUser} onUpdate={props.onUpdateUser} />;
 
     // --- MAIN RETURN ---
+    const PillIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
+
     const navItems = [
         { key: 'HOME', label: 'Home', icon: <HomeIcon /> },
         { key: 'SHOP', label: 'Shop', icon: <ShopIcon /> },
-        { key: 'NEWS', label: 'News', icon: <NewsIcon /> },
+        { key: 'PRESCRIPTIONS', label: 'My Rx', icon: <PillIcon /> }, // New Tab
         { key: 'MESSAGES', label: 'Chat', icon: <MessagesIcon /> },
         { key: 'ORDERS', label: 'Orders', icon: <OrdersIcon /> },
         { key: 'PROFILE', label: 'Profile', icon: <ProfileIcon /> },
@@ -293,6 +282,29 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 {activeTab === 'MESSAGES' && renderMessages()}
                 {activeTab === 'NEWS' && renderNews()}
                 {activeTab === 'ORDERS' && <OrderHistory currentUser={props.currentUser} />}
+                {activeTab === 'PRESCRIPTIONS' && (
+                    <div className="animate-in fade-in duration-500 space-y-4">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-4">Prescription History</h2>
+                        <div className="space-y-3">
+                            {props.prescriptions.map(p => (
+                                <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                                    <div className="text-left">
+                                        <div className="font-bold text-slate-800">{p.medications && p.medications.length > 0 ? p.medications[0].name + (p.medications.length > 1 ? ` +${p.medications.length - 1} more` : '') : 'Prescription #' + p.id.slice(0, 6)}</div>
+                                        <div className="text-xs text-slate-500 mt-1">{new Date(p.created_at).toLocaleDateString()} • {p.medications?.length || 0} items</div>
+                                    </div>
+                                    <div className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${p.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                        p.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {p.status.toLowerCase()}
+                                    </div>
+                                </button>
+                            ))}
+                            {props.prescriptions.length === 0 && (
+                                <div className="text-center py-10 text-gray-400">No prescriptions found.</div>
+                            )}
+                        </div>
+                    </div>
+                )}
                 {activeTab === 'PROFILE' && renderProfile()}
             </main>
 
@@ -311,10 +323,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 </nav>
             </footer>
 
-            {/* Conditionally render the modal */}
-            {selectedPrescription && <PrescriptionPreviewModal prescription={selectedPrescription} onClose={() => setSelectedPrescription(null)} />}
+            {selectedPrescription && <PrescriptionDetailView prescription={selectedPrescription} onClose={() => setSelectedPrescription(null)} />}
 
-            {/* Toast Notifications */}
             <div className="fixed top-4 right-4 z-50 space-y-2">
                 {toasts.map(toast => (
                     <NotificationToast key={toast.id} toast={toast} onDismiss={removeToast} />
