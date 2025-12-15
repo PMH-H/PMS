@@ -12,82 +12,66 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ENUMS
 -- =====================================================
 
-CREATE TYPE user_role AS ENUM (
-  'CUSTOMER',
-  'PHARMACIST',
-  'WORKER',
-  'CASHIER',
-  'ADMIN',
-  'SUPER_ADMIN_BMS',
-  'SUPER_ADMIN_DEV'
-);
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('CUSTOMER', 'PHARMACIST', 'WORKER', 'CASHIER', 'ADMIN', 'SUPER_ADMIN_BMS', 'SUPER_ADMIN_DEV');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE facility_type AS ENUM (
-  'PHARMACY',
-  'DISPENSARY',
-  'WAREHOUSE',
-  'DISTRICT_OFFICE',
-  'REGIONAL_OFFICE',
-  'NATIONAL_OFFICE'
-);
+DO $$ BEGIN
+    CREATE TYPE facility_type AS ENUM ('PHARMACY', 'DISPENSARY', 'WAREHOUSE', 'DISTRICT_OFFICE', 'REGIONAL_OFFICE', 'NATIONAL_OFFICE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE stock_movement_type AS ENUM (
-  'IN',           -- Stock received
-  'OUT',          -- Stock dispensed/sold
-  'ADJUST_UP',    -- Reconciliation increase
-  'ADJUST_DOWN',  -- Reconciliation decrease
-  'TRANSFER_IN',  -- Transfer from another facility
-  'TRANSFER_OUT', -- Transfer to another facility
-  'EXPIRED',      -- Expired stock removal
-  'DAMAGED'       -- Damaged stock removal
-);
+DO $$ BEGIN
+    CREATE TYPE stock_movement_type AS ENUM ('IN', 'OUT', 'ADJUST_UP', 'ADJUST_DOWN', 'TRANSFER_IN', 'TRANSFER_OUT', 'EXPIRED', 'DAMAGED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE reorder_formula_type AS ENUM (
-  'MIN_MAX',
-  'LEAD_TIME',
-  'CONSUMPTION',
-  'EOQ',
-  'EMERGENCY'
-);
+DO $$ BEGIN
+    CREATE TYPE reorder_formula_type AS ENUM ('MIN_MAX', 'LEAD_TIME', 'CONSUMPTION', 'EOQ', 'EMERGENCY');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE ven_class AS ENUM ('V', 'E', 'N'); -- Vital, Essential, Non-essential
-CREATE TYPE abc_class AS ENUM ('A', 'B', 'C'); -- Value-based classification
+DO $$ BEGIN
+    CREATE TYPE ven_class AS ENUM ('V', 'E', 'N');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE cycle_count_status AS ENUM (
-  'SCHEDULED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'APPROVED',
-  'REJECTED'
-);
+DO $$ BEGIN
+    CREATE TYPE abc_class AS ENUM ('A', 'B', 'C');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE po_status AS ENUM (
-  'DRAFT',
-  'SUBMITTED',
-  'APPROVED',
-  'ORDERED',
-  'PARTIALLY_RECEIVED',
-  'RECEIVED',
-  'CANCELLED'
-);
+DO $$ BEGIN
+    CREATE TYPE cycle_count_status AS ENUM ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'APPROVED', 'REJECTED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE alert_type AS ENUM (
-  'LOW_STOCK',
-  'STOCKOUT',
-  'NEAR_EXPIRY',
-  'EXPIRED',
-  'OVERSTOCK',
-  'REORDER_NEEDED',
-  'ANOMALY',
-  'SYSTEM'
-);
+DO $$ BEGIN
+    CREATE TYPE po_status AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE alert_type AS ENUM ('LOW_STOCK', 'STOCKOUT', 'NEAR_EXPIRY', 'EXPIRED', 'OVERSTOCK', 'REORDER_NEEDED', 'ANOMALY', 'SYSTEM');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- =====================================================
 -- CORE TABLES
 -- =====================================================
 
 -- User Profiles (extends Supabase auth.users)
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   role user_role NOT NULL DEFAULT 'CUSTOMER',
   facility_id UUID, -- NULL for customers, set for staff
@@ -100,7 +84,7 @@ CREATE TABLE profiles (
 );
 
 -- Facilities (multi-level hierarchy)
-CREATE TABLE facilities (
+CREATE TABLE IF NOT EXISTS facilities (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   type facility_type NOT NULL,
@@ -114,7 +98,7 @@ CREATE TABLE facilities (
 );
 
 -- Items (Master drug/product catalog)
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   sku TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
@@ -146,7 +130,7 @@ CREATE TABLE items (
 );
 
 -- Item Batches (tracks specific batches with expiry)
-CREATE TABLE item_batches (
+CREATE TABLE IF NOT EXISTS item_batches (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   facility_id UUID NOT NULL REFERENCES facilities(id) ON DELETE CASCADE,
@@ -164,7 +148,7 @@ CREATE TABLE item_batches (
 );
 
 -- Stock Movements (audit trail for all stock changes)
-CREATE TABLE stock_movements (
+CREATE TABLE IF NOT EXISTS stock_movements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   batch_id UUID REFERENCES item_batches(id) ON DELETE SET NULL,
@@ -183,7 +167,7 @@ CREATE TABLE stock_movements (
 -- =====================================================
 
 -- Suppliers
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   contact_person TEXT,
@@ -198,12 +182,16 @@ CREATE TABLE suppliers (
 );
 
 -- Add supplier FK to item_batches
-ALTER TABLE item_batches 
-ADD CONSTRAINT fk_supplier 
-FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE item_batches 
+  ADD CONSTRAINT fk_supplier 
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Purchase Orders
-CREATE TABLE purchase_orders (
+CREATE TABLE IF NOT EXISTS purchase_orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   po_number TEXT UNIQUE NOT NULL,
   supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
@@ -221,7 +209,7 @@ CREATE TABLE purchase_orders (
 );
 
 -- Purchase Order Items
-CREATE TABLE purchase_order_items (
+CREATE TABLE IF NOT EXISTS purchase_order_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   po_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
@@ -232,7 +220,7 @@ CREATE TABLE purchase_order_items (
 );
 
 -- Cycle Counts (physical inventory counts)
-CREATE TABLE cycle_counts (
+CREATE TABLE IF NOT EXISTS cycle_counts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   facility_id UUID NOT NULL REFERENCES facilities(id) ON DELETE CASCADE,
   scheduled_date DATE NOT NULL,
@@ -246,7 +234,7 @@ CREATE TABLE cycle_counts (
 );
 
 -- Cycle Count Results (item-level count results)
-CREATE TABLE cycle_count_results (
+CREATE TABLE IF NOT EXISTS cycle_count_results (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   cycle_count_id UUID NOT NULL REFERENCES cycle_counts(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
@@ -264,7 +252,7 @@ CREATE TABLE cycle_count_results (
 -- =====================================================
 
 -- Inventory Analytics (pre-calculated metrics)
-CREATE TABLE inventory_analytics (
+CREATE TABLE IF NOT EXISTS inventory_analytics (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   facility_id UUID NOT NULL REFERENCES facilities(id) ON DELETE CASCADE,
@@ -280,7 +268,7 @@ CREATE TABLE inventory_analytics (
 );
 
 -- Alerts (system-generated notifications)
-CREATE TABLE alerts (
+CREATE TABLE IF NOT EXISTS alerts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   facility_id UUID NOT NULL REFERENCES facilities(id) ON DELETE CASCADE,
   item_id UUID REFERENCES items(id) ON DELETE CASCADE,
@@ -297,7 +285,7 @@ CREATE TABLE alerts (
 );
 
 -- Vendor Performance (calculated supplier metrics)
-CREATE TABLE vendor_performance (
+CREATE TABLE IF NOT EXISTS vendor_performance (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
   period_start DATE NOT NULL,
@@ -316,7 +304,7 @@ CREATE TABLE vendor_performance (
 -- =====================================================
 
 -- Audit Log (comprehensive audit trail)
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   table_name TEXT NOT NULL,
   record_id UUID NOT NULL,
@@ -330,7 +318,7 @@ CREATE TABLE audit_log (
 );
 
 -- Feedback (user feedback and bug reports)
-CREATE TABLE feedback (
+CREATE TABLE IF NOT EXISTS feedback (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES profiles(id),
   category TEXT, -- bug, feature, improvement, other
@@ -341,7 +329,7 @@ CREATE TABLE feedback (
 );
 
 -- Search Logs (anonymous search tracking for analytics)
-CREATE TABLE search_logs (
+CREATE TABLE IF NOT EXISTS search_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   term TEXT NOT NULL,
   category TEXT, -- PRODUCT, SYMPTOM, etc.
@@ -354,55 +342,55 @@ CREATE TABLE search_logs (
 -- =====================================================
 
 -- Profiles
-CREATE INDEX idx_profiles_facility ON profiles(facility_id);
-CREATE INDEX idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_facility ON profiles(facility_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
 -- Facilities
-CREATE INDEX idx_facilities_parent ON facilities(parent_id);
-CREATE INDEX idx_facilities_type ON facilities(type);
+CREATE INDEX IF NOT EXISTS idx_facilities_parent ON facilities(parent_id);
+CREATE INDEX IF NOT EXISTS idx_facilities_type ON facilities(type);
 
 -- Items
-CREATE INDEX idx_items_sku ON items(sku);
-CREATE INDEX idx_items_barcode ON items(barcode);
-CREATE INDEX idx_items_category ON items(category);
-CREATE INDEX idx_items_name_gin ON items USING gin(to_tsvector('english', name || ' ' || COALESCE(generic_name, '')));
+CREATE INDEX IF NOT EXISTS idx_items_sku ON items(sku);
+CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode);
+CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
+CREATE INDEX IF NOT EXISTS idx_items_name_gin ON items USING gin(to_tsvector('english', name || ' ' || COALESCE(generic_name, '')));
 
 -- Item Batches
-CREATE INDEX idx_batches_item ON item_batches(item_id);
-CREATE INDEX idx_batches_facility ON item_batches(facility_id);
-CREATE INDEX idx_batches_expiry ON item_batches(expiry_date);
-CREATE INDEX idx_batches_supplier ON item_batches(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_batches_item ON item_batches(item_id);
+CREATE INDEX IF NOT EXISTS idx_batches_facility ON item_batches(facility_id);
+CREATE INDEX IF NOT EXISTS idx_batches_expiry ON item_batches(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_batches_supplier ON item_batches(supplier_id);
 
 -- Stock Movements
-CREATE INDEX idx_movements_item ON stock_movements(item_id);
-CREATE INDEX idx_movements_facility ON stock_movements(facility_id);
-CREATE INDEX idx_movements_batch ON stock_movements(batch_id);
-CREATE INDEX idx_movements_type ON stock_movements(movement_type);
-CREATE INDEX idx_movements_created ON stock_movements(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_movements_item ON stock_movements(item_id);
+CREATE INDEX IF NOT EXISTS idx_movements_facility ON stock_movements(facility_id);
+CREATE INDEX IF NOT EXISTS idx_movements_batch ON stock_movements(batch_id);
+CREATE INDEX IF NOT EXISTS idx_movements_type ON stock_movements(movement_type);
+CREATE INDEX IF NOT EXISTS idx_movements_created ON stock_movements(created_at DESC);
 
 -- Purchase Orders
-CREATE INDEX idx_po_facility ON purchase_orders(facility_id);
-CREATE INDEX idx_po_supplier ON purchase_orders(supplier_id);
-CREATE INDEX idx_po_status ON purchase_orders(status);
-CREATE INDEX idx_po_date ON purchase_orders(order_date DESC);
+CREATE INDEX IF NOT EXISTS idx_po_facility ON purchase_orders(facility_id);
+CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_po_date ON purchase_orders(order_date DESC);
 
 -- Cycle Counts
-CREATE INDEX idx_cycle_facility ON cycle_counts(facility_id);
-CREATE INDEX idx_cycle_status ON cycle_counts(status);
-CREATE INDEX idx_cycle_assigned ON cycle_counts(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_cycle_facility ON cycle_counts(facility_id);
+CREATE INDEX IF NOT EXISTS idx_cycle_status ON cycle_counts(status);
+CREATE INDEX IF NOT EXISTS idx_cycle_assigned ON cycle_counts(assigned_to);
 
 -- Alerts
-CREATE INDEX idx_alerts_facility ON alerts(facility_id);
-CREATE INDEX idx_alerts_item ON alerts(item_id);
-CREATE INDEX idx_alerts_type ON alerts(alert_type);
-CREATE INDEX idx_alerts_unread ON alerts(is_read) WHERE is_read = FALSE;
-CREATE INDEX idx_alerts_created ON alerts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_facility ON alerts(facility_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_item ON alerts(item_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_alerts_unread ON alerts(is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at DESC);
 
 -- Audit Log
-CREATE INDEX idx_audit_table ON audit_log(table_name);
-CREATE INDEX idx_audit_record ON audit_log(record_id);
-CREATE INDEX idx_audit_user ON audit_log(performed_by);
-CREATE INDEX idx_audit_created ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_table ON audit_log(table_name);
+CREATE INDEX IF NOT EXISTS idx_audit_record ON audit_log(record_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(performed_by);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 
 -- =====================================================
 -- TRIGGERS FOR UPDATED_AT
@@ -416,26 +404,54 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_facilities_updated_at BEFORE UPDATE ON facilities
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_facilities_updated_at BEFORE UPDATE ON facilities
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_items_updated_at BEFORE UPDATE ON items
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_items_updated_at BEFORE UPDATE ON items
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_item_batches_updated_at BEFORE UPDATE ON item_batches
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_item_batches_updated_at BEFORE UPDATE ON item_batches
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_suppliers_updated_at BEFORE UPDATE ON suppliers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_suppliers_updated_at BEFORE UPDATE ON suppliers
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_purchase_orders_updated_at BEFORE UPDATE ON purchase_orders
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_purchase_orders_updated_at BEFORE UPDATE ON purchase_orders
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TRIGGER update_cycle_counts_updated_at BEFORE UPDATE ON cycle_counts
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  CREATE TRIGGER update_cycle_counts_updated_at BEFORE UPDATE ON cycle_counts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- =====================================================
 -- COMMENTS

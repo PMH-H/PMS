@@ -5,7 +5,7 @@
 import { supabase } from './supabase';
 import type {
     Drug, DrugBatch, Sale, SaleItem, InventoryAdjustment,
-    AuditLog, SearchLog, User, Notification, Prescription, PatientAllergy
+    AuditLog, SearchLog, User, Notification, Prescription, PatientAllergy, InventoryItem
 } from '../types';
 
 // =====================================================
@@ -17,7 +17,22 @@ export const getItems = async (facilityId?: string) => {
     return data || [];
 };
 
-// ... (other item functions are correct)
+export const addItem = async (item: Omit<InventoryItem, 'id'>) => {
+    const { data, error } = await supabase.from('items').insert([item]).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateItem = async (id: string, updates: Partial<InventoryItem>) => {
+    const { data, error } = await supabase.from('items').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteItem = async (id: string) => {
+    const { error } = await supabase.from('items').delete().eq('id', id);
+    if (error) throw error;
+};
 
 // =====================================================
 // ITEM BATCHES
@@ -155,4 +170,3 @@ export const removePatientAllergy = async (id: string) => {
         .eq('id', id);
     if (error) throw error;
 };
-

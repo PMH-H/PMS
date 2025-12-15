@@ -51,12 +51,15 @@ const App: React.FC = () => {
   const [drugs, setDrugs] = useState<Drug[]>([]);
   const [batches, setBatches] = useState<DrugBatch[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setPrescriberProfile(null);
     setDrugs([]); setBatches([]); setSales([]); setPrescriptions([]); setNotifications([]);
+    setAuditLogs([]); setSearchLogs([]);
   };
 
   useIdleTimer(handleLogout, 15 * 60 * 1000);
@@ -93,6 +96,10 @@ const App: React.FC = () => {
   }, []);
 
   const fetchUserProfile = async (userId: string, email: string) => {
+    if (!userId) {
+      console.error("Attempted to fetch profile with an undefined user ID. Aborting.");
+      return;
+    }
     setLoading(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -116,7 +123,7 @@ const App: React.FC = () => {
             .select('*')
             .eq('user_id', user.id)
             .single();
-            
+
           if (profileError && profileError.code !== 'PGRST116') {
              console.error("Error fetching prescriber profile:", profileError);
           } else {
@@ -155,21 +162,27 @@ const App: React.FC = () => {
     }
 
     if (facilityId) {
-      const [batchesResult, salesResult, alertsResult, facilityRxsResult] = await Promise.allSettled([
+      const [batchesResult, salesResult, alertsResult, facilityRxsResult, auditLogsResult, searchLogsResult] = await Promise.allSettled([
         getBatches({ facilityId }),
         supabase.from('sales').select('*').eq('facility_id', facilityId),
         getStockAlerts(facilityId),
-        getPrescriptions(undefined, facilityId) // Fetch all for facility
+        getPrescriptions(undefined, facilityId), // Fetch all for facility
+        supabase.from('audit_log').select('*').eq('facility_id', facilityId),
+        supabase.from('search_logs').select('*'),
       ]);
 
       const newBatches = batchesResult.status === 'fulfilled' ? batchesResult.value || [] : [];
       const newSales = salesResult.status === 'fulfilled' ? salesResult.value.data || [] : [];
       const newNotifications = alertsResult.status === 'fulfilled' ? alertsResult.value || [] : [];
       const facilityRxs = facilityRxsResult.status === 'fulfilled' ? facilityRxsResult.value || [] : [];
+      const newAuditLogs = auditLogsResult.status === 'fulfilled' ? auditLogsResult.value.data || [] : [];
+      const newSearchLogs = searchLogsResult.status === 'fulfilled' ? searchLogsResult.value.data || [] : [];
 
       setBatches(newBatches);
       setSales(newSales);
       setNotifications(newNotifications as Notification[]);
+      setAuditLogs(newAuditLogs as AuditLog[]);
+      setSearchLogs(newSearchLogs as SearchLog[]);
 
       const combined = [...prescriptions, ...facilityRxs];
       setPrescriptions(Array.from(new Map(combined.map(p => [p.id, p])).values()));
@@ -201,7 +214,7 @@ const App: React.FC = () => {
   if (!currentUser) {
     return showProfileSetup && pendingUserData ?
       <ProfileSetup userId={pendingUserData.userId} email={pendingUserData.email} onProfileCreated={handleProfileCreated} /> :
-      <Login onLoginSuccess={() => fetchUserProfile(supabase.auth.getUser().id, supabase.auth.getUser().email)} />;
+      <Login />;
   }
 
   const renderDashboard = () => {
@@ -220,9 +233,9 @@ const App: React.FC = () => {
       case UserRole.CUSTOMER:
         return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={notifications} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
-        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} notifications={notifications} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
+        return <PharmacistDashboard {...commonProps} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} />;
       case UserRole.ADMIN:
-        return <AdminDashboard {...commonProps} inventory={drugs} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
+        return <AdminDashboard {...commonProps} inventory={drugs} sales={sales} users={[]} logs={[]} auditLogs={auditLogs} batches={batches} searchLogs={searchLogs}/>;
       case UserRole.SUPER_ADMIN_BMS:
         return <SuperAdminDashboard {...commonProps} />;
       case UserRole.SUPER_ADMIN_DEV:
