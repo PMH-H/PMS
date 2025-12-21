@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MarketTrend, Prediction, User } from '../types';
+import { MarketTrend, Prediction, User, AdminMetricsSummary } from '../types';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend, ComposedChart, Area
@@ -10,9 +10,13 @@ import BusinessMetricsPanel from '../components/BusinessMetricsPanel';
 import UserAdminTable from '../components/UserAdminTable';
 import AuditLogViewer from '../components/AuditLogViewer';
 import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
+import ComprehensiveMetricsDashboard from '../components/ComprehensiveMetricsDashboard';
+import SignupApprovalPanel from '../components/admin/SignupApprovalPanel';
+import PharmacyRegistrationForm from '../components/PharmacyRegistrationForm';
 
 interface SuperAdminDashboardProps {
     currentUser?: User;
+    metrics?: AdminMetricsSummary | null;
 }
 
 // --- MOCK DATA FOR PREDICTIONS (AI-generated, not facility-specific) ---
@@ -22,14 +26,22 @@ const MOCK_PREDICTIONS: Prediction[] = [
     { id: 'pr3', type: 'PRICE_SPIKE', title: 'Insulin Cost Increase', probability: 90, description: 'Global supply chain disruption predicted to raise import costs by 15%.', impactLevel: 'HIGH', targetDate: 'Dec 2023' },
 ];
 
-type TabKey = 'OVERVIEW' | 'PLATFORM' | 'OPERATIONS' | 'MARKET' | 'FORECAST' | 'FACILITIES' | 'USERS' | 'COMPLIANCE';
+type TabKey = 'OVERVIEW' | 'PLATFORM' | 'OPERATIONS' | 'MARKET' | 'FORECAST' | 'FACILITIES' | 'USERS' | 'METRICS' | 'COMPLIANCE' | 'SETTINGS';
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }) => {
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, metrics }) => {
     const [activeTab, setActiveTab] = useState<TabKey>('OVERVIEW');
     const [aiSummary, setAiSummary] = useState<string>('Loading executive summary...');
     const [facilities, setFacilities] = useState<FacilityMetrics[]>([]);
     const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isAddFacilityOpen, setIsAddFacilityOpen] = useState(false);
+    const [signupEnabled, setSignupEnabled] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('pharmai_signup_enabled') || 'false');
+        } catch {
+            return false;
+        }
+    });
 
     const tabs: { key: TabKey; label: string; icon: string }[] = [
         { key: 'OVERVIEW', label: 'Overview', icon: '📊' },
@@ -39,7 +51,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
         { key: 'FORECAST', label: 'Forecast', icon: '🔮' },
         { key: 'FACILITIES', label: 'Facilities', icon: '🏥' },
         { key: 'USERS', label: 'Users', icon: '👥' },
+        { key: 'METRICS', label: 'Analytics', icon: '📉' },
         { key: 'COMPLIANCE', label: 'Compliance', icon: '📋' },
+        { key: 'SETTINGS', label: 'Settings', icon: '⚙️' },
     ];
 
     // Fetch real data on mount
@@ -84,6 +98,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
         setFacilities(prev => prev.map(f =>
             f.id === id ? { ...f, dataSharingEnabled: !f.dataSharingEnabled } : f
         ));
+    };
+
+    const toggleSignupMode = (enabled: boolean) => {
+        setSignupEnabled(enabled);
+        localStorage.setItem('pharmai_signup_enabled', JSON.stringify(enabled));
     };
 
     const antibioticsData = marketTrends.filter(t => t.category === 'Antibiotics' || t.category === 'A');
@@ -275,9 +294,37 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-900 text-lg">Pharmacy Network Governance</h3>
-                    <button className="text-sm text-indigo-600 font-bold hover:underline">Download Audit Log</button>
+                    <div className="flex items-center gap-4">
+                        <h3 className="font-bold text-slate-900 text-lg">Pharmacy Network Governance</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsAddFacilityOpen(true)}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            New Facility
+                        </button>
+                        <button className="text-sm text-indigo-600 font-bold hover:underline">Download Audit Log</button>
+                    </div>
                 </div>
+                {/* Modal for Add Facility */}
+                {isAddFacilityOpen && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                        <div className="w-full max-w-2xl relative">
+                            <PharmacyRegistrationForm
+                                currentUser={currentUser!}
+                                isAdminMode={true}
+                                onSuccess={() => {
+                                    setIsAddFacilityOpen(false);
+                                    // ideally refresh list, but reload works for now to sync everything
+                                    window.location.reload();
+                                }}
+                                onCancel={() => setIsAddFacilityOpen(false)}
+                            />
+                        </div>
+                    </div>
+                )}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -340,6 +387,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
                     </div>
                 </div>
             </div>
+            {/* Signup Approval Panel */}
+            <SignupApprovalPanel />
+            {/* Existing Users Table */}
             <UserAdminTable />
         </div>
     );
@@ -347,6 +397,52 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
     const renderCompliance = () => (
         <div className="animate-in fade-in duration-300">
             <AuditLogViewer />
+        </div>
+    );
+
+    const renderSettings = () => (
+        <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="font-bold text-slate-900 mb-6 text-lg">Authentication Settings</h3>
+
+                <div className="space-y-4">
+                    {/* Signup Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                            <h4 className="font-semibold text-slate-900">Allow User Sign Up</h4>
+                            <p className="text-sm text-gray-600 mt-1">Enable or disable the 'Sign Up' option on the login page</p>
+                        </div>
+                        <button
+                            onClick={() => toggleSignupMode(!signupEnabled)}
+                            className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors ${signupEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                }`}
+                        >
+                            <span
+                                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${signupEnabled ? 'translate-x-7' : 'translate-x-1'
+                                    }`}
+                            />
+                        </button>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-sm text-amber-800">
+                            <strong>Current Status:</strong> Sign Up is {signupEnabled ? <span className="text-emerald-700 font-semibold">ENABLED</span> : <span className="text-gray-700 font-semibold">DISABLED</span>}
+                        </p>
+                        <p className="text-xs text-amber-700 mt-2">
+                            When disabled, users can only sign in. New users can only be created by administrators.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                <h4 className="font-semibold text-blue-900 mb-2">💡 Configuration Tips</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Keep Sign Up disabled for production to control user access</li>
+                    <li>• Enable temporarily for onboarding new facilities</li>
+                    <li>• Changes take effect immediately on the login page</li>
+                </ul>
+            </div>
         </div>
     );
 
@@ -403,7 +499,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser }
                 {activeTab === 'FORECAST' && renderForecast()}
                 {activeTab === 'FACILITIES' && renderFacilities()}
                 {activeTab === 'USERS' && renderUsers()}
+                {activeTab === 'METRICS' && <ComprehensiveMetricsDashboard />}
                 {activeTab === 'COMPLIANCE' && renderCompliance()}
+                {activeTab === 'SETTINGS' && renderSettings()}
             </div>
         </div>
     );

@@ -10,10 +10,13 @@ import AuditLogViewer from '../components/AuditLogViewer';
 import PromotionManager from '../components/PromotionManager';
 import PrescriptionManager from '../components/PrescriptionManager';
 import AdminStaffPanel from '../components/AdminStaffPanel';
+import StoreProductManager from '../components/StoreProductManager';
+import ComprehensiveMetricsDashboard from '../components/ComprehensiveMetricsDashboard';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
+import PharmacyRegistrationForm from '../components/PharmacyRegistrationForm';
 
 interface AdminDashboardProps {
     currentUser?: User;
@@ -30,7 +33,36 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
     currentUser, onUpdateUser, logs, users, sales, auditLogs, inventory, batches, searchLogs
 }) => {
-    const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STAFF' | 'SALES' | 'INVENTORY' | 'INSIGHTS' | 'ANALYTICS' | 'PROCUREMENT' | 'PROMOTIONS' | 'PRESCRIPTIONS' | 'COMPLIANCE' | 'PROFILE'>('OVERVIEW');
+    // --- Tab Grouping ---
+    type TabGroup = 'OVERVIEW' | 'OPERATIONS' | 'ANALYTICS' | 'MANAGEMENT' | 'SETTINGS';
+
+    const TAB_GROUPS: Record<TabGroup, string[]> = {
+        OVERVIEW: ['DASHBOARD'],
+        OPERATIONS: ['PRESCRIPTIONS', 'INVENTORY', 'PROCUREMENT', 'PROMOTIONS'],
+        ANALYTICS: ['SALES', 'INSIGHTS', 'ANALYTICS', 'METRICS'],
+        MANAGEMENT: ['STAFF', 'COMPLIANCE', 'STORE'],
+        SETTINGS: ['PROFILE', 'FACILITY']
+    };
+
+    const [activeGroup, setActiveGroup] = useState<TabGroup>('OVERVIEW');
+    const [activeSubTab, setActiveSubTab] = useState<string>('DASHBOARD');
+    const [facilityDetails, setFacilityDetails] = useState<any>(null);
+
+    // Fetch Facility Details for Settings
+    React.useEffect(() => {
+        if (currentUser?.facility_id) {
+            import('../services/supabase').then(({ supabase }) => {
+                supabase.from('facilities').select('*').eq('id', currentUser.facility_id).maybeSingle()
+                    .then(({ data }) => { if (data) setFacilityDetails(data); });
+            });
+        }
+    }, [currentUser?.facility_id]);
+
+    // Auto-select first subtab when group changes
+    const handleGroupChange = (group: TabGroup) => {
+        setActiveGroup(group);
+        setActiveSubTab(TAB_GROUPS[group][0]);
+    };
 
     // --- Computed Metrics ---
 
@@ -159,7 +191,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Sales Chart */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h3 className="font-bold text-gray-900 mb-6">Hourly Sales Performance</h3>
-                    <div className="h-72">
+                    <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={hourlySalesData}>
                                 <defs>
@@ -207,7 +239,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Employee Performance */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
                     <h3 className="font-bold text-gray-900 mb-6">Employee Performance (Sales by Cashier)</h3>
-                    <div className="h-64">
+                    <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={employeeStats} layout="vertical">
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
@@ -224,7 +256,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h3 className="font-bold text-gray-900 mb-2">Checkout Method Analysis</h3>
                     <p className="text-xs text-gray-500 mb-4">Manual vs Scanned Entries</p>
-                    <div className="h-56">
+                    <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -373,50 +405,146 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
     );
 
-    return (
-        <div className="pb-10">
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Business Dashboard</h1>
-                    <p className="text-slate-500">Shop Owner View</p>
-                </div>
-                <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200 overflow-x-auto">
-                    {(['OVERVIEW', 'STAFF', 'SALES', 'INVENTORY', 'INSIGHTS', 'ANALYTICS', 'PROCUREMENT', 'PROMOTIONS', 'PRESCRIPTIONS', 'COMPLIANCE', 'PROFILE'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-sm font-bold rounded-md transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
-                                }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
+
+
+    // If Admin has no facility, force registration
+    if (currentUser && !currentUser.facility_id) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                <div className="w-full max-w-2xl animate-in fade-in duration-500">
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-slate-900 mb-2">Setup Your Pharmacy</h1>
+                        <p className="text-slate-600">Your admin account is active. Please register your pharmacy details to get started.</p>
+                    </div>
+                    <PharmacyRegistrationForm
+                        currentUser={currentUser}
+                        onSuccess={(fid) => {
+                            if (onUpdateUser) {
+                                onUpdateUser({ ...currentUser, facility_id: fid });
+                            }
+                            window.location.reload();
+                        }}
+                    />
                 </div>
             </div>
+        );
+    }
 
-            {activeTab === 'OVERVIEW' && renderOverview()}
-            {activeTab === 'STAFF' && currentUser && (
-                <AdminStaffPanel currentUser={currentUser} />
-            )}
-            {activeTab === 'SALES' && renderSales()}
-            {activeTab === 'INVENTORY' && renderInventory()}
-            {activeTab === 'INSIGHTS' && renderInsights()}
-            {activeTab === 'ANALYTICS' && currentUser && (
-                <AnalyticsDashboard facilityId={currentUser.facility_id} />
-            )}
-            {activeTab === 'PROCUREMENT' && currentUser && (
-                <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />
-            )}
-            {activeTab === 'PROMOTIONS' && currentUser && (
-                <PromotionManager currentUser={currentUser} facilityId={currentUser.facility_id} />
-            )}
-            {activeTab === 'PRESCRIPTIONS' && currentUser && (
-                <PrescriptionManager currentUser={currentUser} facilityId={currentUser.facility_id} />
-            )}
-            {activeTab === 'COMPLIANCE' && (
-                <AuditLogViewer facilityId={currentUser?.facility_id} />
-            )}
-            {activeTab === 'PROFILE' && renderProfile()}
+    return (
+        <div className="pb-10 min-h-screen bg-slate-50/50">
+            {/* Top Navigation Bar */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 md:px-8 py-3 shadow-sm rounded-b-2xl mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Business Dashboard</h1>
+                        <p className="text-xs text-slate-500 font-medium">Shop Owner View</p>
+                    </div>
+
+                    {/* Main Group Nav */}
+                    <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto scrollbar-hide w-full md:w-auto">
+                        {(Object.keys(TAB_GROUPS) as TabGroup[]).map(group => (
+                            <button
+                                key={group}
+                                onClick={() => handleGroupChange(group)}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${activeGroup === group
+                                    ? 'bg-white text-indigo-600 shadow-sm transform scale-105'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                                    }`}
+                            >
+                                {group.charAt(0) + group.slice(1).toLowerCase()}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Sub-Navigation (if more than 1 item) */}
+                {TAB_GROUPS[activeGroup].length > 1 && (
+                    <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        {TAB_GROUPS[activeGroup].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveSubTab(tab)}
+                                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md border transition-colors whitespace-nowrap ${activeSubTab === tab
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                                    }`}
+                            >
+                                {tab.replace('_', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="px-4 md:px-8">
+                {/* Content Parsing */}
+                {activeGroup === 'OVERVIEW' && renderOverview()}
+
+                {/* Operations Group */}
+                {activeGroup === 'OPERATIONS' && (
+                    <>
+                        {activeSubTab === 'PRESCRIPTIONS' && currentUser && <PrescriptionManager currentUser={currentUser} facilityId={currentUser.facility_id} />}
+                        {activeSubTab === 'INVENTORY' && renderInventory()}
+                        {activeSubTab === 'PROCUREMENT' && currentUser && <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />}
+                        {activeSubTab === 'PROMOTIONS' && currentUser && <PromotionManager currentUser={currentUser} facilityId={currentUser.facility_id} />}
+                    </>
+                )}
+
+                {/* Analytics Group */}
+                {activeGroup === 'ANALYTICS' && (
+                    <>
+                        {activeSubTab === 'SALES' && renderSales()}
+                        {activeSubTab === 'INSIGHTS' && renderInsights()}
+                        {activeSubTab === 'ANALYTICS' && currentUser && <AnalyticsDashboard facilityId={currentUser.facility_id} />}
+                        {activeSubTab === 'METRICS' && <ComprehensiveMetricsDashboard />}
+                    </>
+                )}
+
+                {/* Management Group */}
+                {activeGroup === 'MANAGEMENT' && (
+                    <>
+                        {activeSubTab === 'STAFF' && currentUser && <AdminStaffPanel currentUser={currentUser} />}
+                        {activeSubTab === 'COMPLIANCE' && <AuditLogViewer facilityId={currentUser?.facility_id} />}
+                        {activeSubTab === 'STORE' && <StoreProductManager />}
+                    </>
+                )}
+
+                {/* Settings Group */}
+                {activeGroup === 'SETTINGS' && (
+                    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                        {activeSubTab === 'PROFILE' && renderProfile()}
+
+                        {activeSubTab === 'FACILITY' && (
+                            <div className="space-y-4">
+                                <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl p-8 text-white shadow-lg">
+                                    <h2 className="text-2xl font-bold mb-2">Facility Settings</h2>
+                                    <p className="text-indigo-100 opacity-90">Update your pharmacy's public information. This is what your staff and customers see.</p>
+                                </div>
+                                {facilityDetails ? (
+                                    <PharmacyRegistrationForm
+                                        currentUser={currentUser!}
+                                        isAdminMode={true}
+                                        isUpdate={true}
+                                        initialData={facilityDetails}
+                                        onSuccess={() => {
+                                            // Refresh details
+                                            import('../services/supabase').then(({ supabase }) => {
+                                                supabase.from('facilities').select('*').eq('id', currentUser!.facility_id).maybeSingle()
+                                                    .then(({ data }) => setFacilityDetails(data));
+                                            });
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="p-12 text-center bg-white rounded-xl border border-gray-200">
+                                        <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                        <p className="text-gray-500">Loading facility details...</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

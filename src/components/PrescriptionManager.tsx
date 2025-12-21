@@ -26,7 +26,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'prescriptions' },
                 (payload) => {
-                    if(payload.eventType === 'INSERT') {
+                    if (payload.eventType === 'INSERT') {
                         info('A new prescription has been submitted.');
                     }
                     fetchPrescriptions();
@@ -93,7 +93,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             await createAuditLog({
                 action: 'Prescription approved',
-                userId: currentUser.id,
+                performed_by: currentUser.id,
                 details: `Prescription ID: ${prescriptionId}`
             });
             success('Prescription approved successfully');
@@ -127,7 +127,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
             await createAuditLog({
                 action: 'Prescription rejected',
-                userId: currentUser.id,
+                performed_by: currentUser.id,
                 details: `Prescription ID: ${prescriptionId}`
             });
             success('Prescription rejected successfully');

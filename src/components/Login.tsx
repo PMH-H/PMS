@@ -3,20 +3,29 @@ import { signIn, signUp } from '../services/supabase';
 import { supabase } from '../services/supabase';
 
 interface LoginProps {
-    onLoginSuccess: () => void;
+    onLoginSuccess?: () => void;
 }
 
 type AuthMode = 'signin' | 'signup' | 'reset';
+type SignupRole = 'patient' | 'prescriber' | 'pharmacist_admin';
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [mode, setMode] = useState<AuthMode>('signin');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    // Extended signup fields
+    const [signupRole, setSignupRole] = useState<SignupRole>('patient');
+    const [fullName, setFullName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [hpczNumber, setHpczNumber] = useState('');
+    const [specialization, setSpecialization] = useState('');
+    const [facilityName, setFacilityName] = useState('');
+
+    const isProfessionalRole = signupRole === 'prescriber' || signupRole === 'pharmacist_admin';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,37 +39,56 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 if (error) {
                     setError(error.message || 'Invalid login credentials');
                 } else {
-                    onLoginSuccess();
+                    onLoginSuccess?.();
                 }
             } else if (mode === 'signup') {
-                // Validation
-                if (password !== confirmPassword) {
-                    setError('Passwords do not match');
+                // Validate professional fields
+                if (isProfessionalRole && !hpczNumber.trim()) {
+                    setError('HPCZ Registration Number is required for healthcare professionals');
                     setLoading(false);
                     return;
                 }
-                if (password.length < 6) {
-                    setError('Password must be at least 6 characters');
+                if (!fullName.trim()) {
+                    setError('Full name is required');
                     setLoading(false);
                     return;
                 }
 
-                const { error } = await signUp(email, password, { full_name: fullName });
-                if (error) {
-                    setError(error.message || 'Failed to create account');
-                } else {
-                    setSuccess('Account created! Please check your email to verify your account.');
-                    // Clear form
-                    setEmail('');
-                    setPassword('');
-                    setConfirmPassword('');
-                    setFullName('');
-                    // Switch to sign in after 3 seconds
-                    setTimeout(() => {
-                        setMode('signin');
-                        setSuccess('');
-                    }, 3000);
+                // 1. Create Supabase auth user
+                const { data: authData, error: authError } = await signUp(email, password);
+                if (authError) {
+                    setError(authError.message || 'Failed to sign up');
+                    setLoading(false);
+                    return;
                 }
+
+                // 2. Create signup request
+                const { error: requestError } = await supabase.from('signup_requests').insert([{
+                    email,
+                    user_id: authData.user?.id,
+                    requested_role: signupRole,
+                    full_name: fullName.trim(),
+                    phone: phone.trim() || null,
+                    hpcz_number: isProfessionalRole ? hpczNumber.trim() : null,
+                    specialization: signupRole === 'prescriber' ? specialization.trim() : null,
+                    facility_name: signupRole === 'pharmacist_admin' ? facilityName.trim() : null,
+                }]);
+
+                if (requestError) {
+                    console.error('Signup request error:', requestError);
+                    // Don't fail the whole flow, user can still sign in and complete profile
+                }
+
+                const successMessage = signupRole === 'patient'
+                    ? 'Account created! You can now sign in.'
+                    : 'Registration submitted! Your account will be activated after verification.';
+
+                setSuccess(successMessage);
+                setTimeout(() => {
+                    setMode('signin');
+                    setSuccess('');
+                    resetForm();
+                }, 3000);
             } else if (mode === 'reset') {
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: window.location.origin + '/reset-password',
@@ -80,6 +108,17 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const resetForm = () => {
+        setEmail('');
+        setPassword('');
+        setFullName('');
+        setPhone('');
+        setHpczNumber('');
+        setSpecialization('');
+        setFacilityName('');
+        setSignupRole('patient');
     };
 
     return (
@@ -139,22 +178,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Full Name (Sign Up Only) */}
-                    {mode === 'signup' && (
-                        <div className="form-group">
-                            <label htmlFor="fullName">Full Name</label>
-                            <input
-                                id="fullName"
-                                type="text"
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                placeholder="Enter your full name"
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                    )}
-
                     {/* Email */}
                     <div className="form-group">
                         <label htmlFor="email">Email</label>
@@ -185,20 +208,107 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Confirm Password (Sign Up Only) */}
+                    {/* SIGNUP-SPECIFIC FIELDS */}
                     {mode === 'signup' && (
-                        <div className="form-group">
-                            <label htmlFor="confirmPassword">Confirm Password</label>
-                            <input
-                                id="confirmPassword"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="Confirm your password"
-                                required
-                                disabled={loading}
-                            />
-                        </div>
+                        <>
+                            {/* Full Name */}
+                            <div className="form-group">
+                                <label htmlFor="fullName">Full Name *</label>
+                                <input
+                                    id="fullName"
+                                    type="text"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    placeholder="Enter your full name"
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+
+                            {/* Phone */}
+                            <div className="form-group">
+                                <label htmlFor="phone">Phone Number</label>
+                                <input
+                                    id="phone"
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="+260 XXX XXX XXX"
+                                    disabled={loading}
+                                />
+                            </div>
+
+                            {/* Role Selection */}
+                            <div className="form-group">
+                                <label htmlFor="role">I am registering as a:</label>
+                                <select
+                                    id="role"
+                                    value={signupRole}
+                                    onChange={(e) => setSignupRole(e.target.value as any)}
+                                    disabled={loading}
+                                    className="role-select"
+                                >
+                                    <option value="patient">🏥 Patient (Personal Use)</option>
+                                    <option value="prescriber">👨‍⚕️ Prescriber (Doctor/Nurse)</option>
+                                    <option value="pharmacist_admin">💊 Pharmacy Owner/Admin</option>
+                                </select>
+                            </div>
+
+                            {/* HPCZ Number (for professionals) */}
+                            {isProfessionalRole && (
+                                <div className="form-group professional-field">
+                                    <label htmlFor="hpcz">HPCZ Registration Number *</label>
+                                    <input
+                                        id="hpcz"
+                                        type="text"
+                                        value={hpczNumber}
+                                        onChange={(e) => setHpczNumber(e.target.value)}
+                                        placeholder="e.g., HPCZ/12345/2024"
+                                        required
+                                        disabled={loading}
+                                    />
+                                    <small className="field-hint">Required for verification</small>
+                                </div>
+                            )}
+
+                            {/* Specialization (for prescribers) */}
+                            {signupRole === 'prescriber' && (
+                                <div className="form-group professional-field">
+                                    <label htmlFor="specialization">Specialization</label>
+                                    <input
+                                        id="specialization"
+                                        type="text"
+                                        value={specialization}
+                                        onChange={(e) => setSpecialization(e.target.value)}
+                                        placeholder="e.g., General Practitioner, Pediatrician"
+                                        disabled={loading}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Facility Name (for pharmacy admins) */}
+                            {signupRole === 'pharmacist_admin' && (
+                                <div className="form-group professional-field">
+                                    <label htmlFor="facility">Pharmacy Name</label>
+                                    <input
+                                        id="facility"
+                                        type="text"
+                                        value={facilityName}
+                                        onChange={(e) => setFacilityName(e.target.value)}
+                                        placeholder="Enter your pharmacy's name"
+                                        disabled={loading}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Professional Notice */}
+                            {isProfessionalRole && (
+                                <div className="professional-notice">
+                                    <span className="notice-icon">ℹ️</span>
+                                    <span>Professional accounts require HPCZ verification before activation.</span>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {/* Forgot Password Link (Sign In Only) */}
@@ -253,27 +363,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 {/* Footer */}
                 <div className="login-footer">
                     <p className="footer-text">
-                        {mode === 'signin' ? (
-                            <>
-                                Don't have an account?{' '}
-                                <button
-                                    onClick={() => setMode('signup')}
-                                    className="link-button"
-                                >
-                                    Sign up
-                                </button>
-                            </>
-                        ) : mode === 'signup' ? (
-                            <>
-                                Already have an account?{' '}
-                                <button
-                                    onClick={() => setMode('signin')}
-                                    className="link-button"
-                                >
-                                    Sign in
-                                </button>
-                            </>
-                        ) : null}
+                        {mode === 'signin' ? null : null}
                     </p>
                 </div>
             </div>
@@ -560,6 +650,62 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     .login-title {
                         font-size: 28px;
                     }
+                }
+
+                /* Role Selection Styles */
+                .role-select {
+                    padding: 12px 16px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 10px;
+                    font-size: 15px;
+                    background: white;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                }
+
+                .role-select:focus {
+                    outline: none;
+                    border-color: #667eea;
+                    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+                }
+
+                /* Professional Fields */
+                .professional-field {
+                    animation: slideIn 0.3s ease-out;
+                }
+
+                @keyframes slideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                .field-hint {
+                    color: #6b7280;
+                    font-size: 12px;
+                    margin-top: 4px;
+                }
+
+                /* Professional Notice */
+                .professional-notice {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px;
+                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                    border-radius: 10px;
+                    font-size: 13px;
+                    color: #92400e;
+                    border: 1px solid #f59e0b;
+                }
+
+                .notice-icon {
+                    font-size: 16px;
                 }
             `}</style>
         </div>

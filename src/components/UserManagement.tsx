@@ -71,21 +71,20 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!selectedUser || !resetPassword) return;
+  const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-        body: { userId: selectedUser.id, newPassword: resetPassword }
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+
       if (error) throw error;
 
-      setFeedback({ message: 'Password reset successfully for ' + selectedUser.email, isError: false });
-      setShowResetModal(false);
-      setResetPassword('');
-      setSelectedUser(null);
+      setFeedback({ message: 'Role updated successfully.', isError: false });
+      fetchUsers(); // Refresh list
     } catch (error: any) {
-      setFeedback({ message: 'Reset failed: ' + error.message, isError: true });
+      setFeedback({ message: 'Update failed: ' + error.message, isError: true });
     } finally {
       setLoading(false);
     }
@@ -176,7 +175,18 @@ const UserManagement: React.FC = () => {
                     <div className="font-medium">{user.full_name || 'No Name'}</div>
                     <div className="text-sm text-slate-500">{user.email}</div>
                   </td>
-                  <td className="p-3 text-sm">{user.role}</td>
+                  <td className="p-3">
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleUpdateRole(user.id, e.target.value as UserRole)}
+                      className="px-2 py-1 border rounded text-sm"
+                      disabled={loading}
+                    >
+                      {Object.values(UserRole).map(role => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="p-3 text-xs font-mono text-slate-400">{user.id.substring(0, 8)}...</td>
                   <td className="p-3">
                     <button

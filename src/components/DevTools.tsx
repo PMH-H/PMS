@@ -95,12 +95,23 @@ const DevTools: React.FC = () => {
                 </button>
             </div>
 
-            {/* Function Logs Viewer */}
+            {/* Schema Browser */}
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-white mb-4">📋 Edge Function Logs</h3>
-                <p className="text-slate-400 text-sm">
-                    View recent Edge Function execution logs (coming soon)
+                <h3 className="text-lg font-bold text-white mb-4">📚 Schema Browser</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                    Available tables for query (read-only)
                 </p>
+                <div className="flex flex-wrap gap-2">
+                    {['profiles', 'prescriptions', 'inventory', 'items', 'sales', 'audit_log', 'feature_flags', 'admin_metrics_summary', 'security_events'].map(table => (
+                        <button
+                            key={table}
+                            onClick={() => setSqlQuery(`SELECT * FROM ${table} LIMIT 10;`)}
+                            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-full transition-colors border border-slate-600"
+                        >
+                            {table}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
     );

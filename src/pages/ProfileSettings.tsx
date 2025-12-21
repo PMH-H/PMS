@@ -63,10 +63,105 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
     }
   };
 
+  // --- Notifications ---
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const { success: notifySuccess, error: notifyError } = { success: (msg: string) => alert(msg), error: (msg: string) => alert(msg) }; // Simple replacement for hook if not available, or use useNotifications if imported
+
+  React.useEffect(() => {
+    // Check initial status
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          setPushEnabled(!!sub);
+        });
+      });
+    }
+  }, []);
+
+  const togglePushNotifications = async () => {
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        const { unsubscribeFromPushNotifications } = await import('../services/notificationService');
+        await unsubscribeFromPushNotifications();
+        setPushEnabled(false);
+        notifySuccess('Push notifications disabled.');
+      } else {
+        const { subscribeToPushNotifications } = await import('../services/notificationService');
+        await subscribeToPushNotifications();
+        setPushEnabled(true);
+        notifySuccess('Push notifications enabled! You will now receive alerts.');
+      }
+    } catch (err: any) {
+      console.error('Push toggle error:', err);
+      notifyError(err.message || 'Failed to update notification settings');
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-6">Profile Settings</h2>
+
+        {/* Notification Settings Card */}
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-6">
+          <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+            Notification Preferences
+          </h3>
+
+          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 shadow-sm">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Push Alerts</p>
+              <p className="text-xs text-slate-500">Receive crucial updates instantly.</p>
+            </div>
+            <button
+              type="button"
+              onClick={togglePushNotifications}
+              disabled={pushLoading}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${pushEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+
+          {pushEnabled && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  setPushLoading(true);
+                  try {
+                    const { error } = await supabase.functions.invoke('send-push', {
+                      body: {
+                        userId: currentUser.id,
+                        title: 'Test Notification',
+                        body: 'If you see this, push notifications are working!',
+                        url: '/admin/profile'
+                      }
+                    });
+                    if (error) throw error;
+                    notifySuccess('Test notification sent! Check your device.');
+                  } catch (err: any) {
+                    console.error('Test push error:', err);
+                    notifyError('Failed to send test: ' + err.message);
+                  } finally {
+                    setPushLoading(false);
+                  }
+                }}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline"
+              >
+                Send Test Alert
+              </button>
+            </div>
+          )}
+
+          {pushLoading && <p className="text-xs text-center text-gray-400 mt-2">Updating settings...</p>}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-8">
 
           {/* Personal Info Section */}

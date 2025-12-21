@@ -11,6 +11,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { analyzePrescriptionImage, checkDrugInteractions, optimizeInventoryLevels } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 import ClinicalDrugDirectory from '../components/ClinicalDrugDirectory';
+import PharmacyRegistrationForm from '../components/PharmacyRegistrationForm';
+import { createJoinRequest, leaveFacility } from '../services/userHierarchyService';
+import { supabase } from '../services/supabase';
 
 interface PharmacistDashboardProps {
     currentUser?: User;
@@ -46,7 +49,44 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     onReconcileInventory,
     onAddPrescription
 }) => {
+    // --- JOIN FACILITY STATE ---
+    const [joinFacilityId, setJoinFacilityId] = useState('');
+    const [joinStatus, setJoinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [joinMessage, setJoinMessage] = useState('');
+
+    // --- FACILITY INFO & LEAVE STATE ---
+    const [facilityName, setFacilityName] = useState<string>('');
+    const [isLeaving, setIsLeaving] = useState(false);
+
+    React.useEffect(() => {
+        if (currentUser?.facility_id) {
+            supabase.from('facilities').select('name').eq('id', currentUser.facility_id).maybeSingle()
+                .then(({ data }) => {
+                    if (data) setFacilityName(data.name);
+                    else setFacilityName('Unknown Facility');
+                })
+                .catch(err => console.error("Error fetching facility", err));
+        }
+    }, [currentUser?.facility_id]);
+
+    const handleLeaveFacility = async () => {
+        if (!window.confirm("Are you sure you want to disconnect from this pharmacy? You will lose access to its data.")) return;
+        setIsLeaving(true);
+        try {
+            await leaveFacility();
+            alert("Disconnected successfully.");
+            window.location.reload();
+        } catch (err: any) {
+            console.error(err);
+            alert("Failed to disconnect: " + err.message);
+            setIsLeaving(false);
+        }
+    };
+
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'METRICS' | 'STOCK' | 'PROCUREMENT' | 'ORDERS' | 'PRESCRIPTIONS' | 'COUNTING' | 'NEWS' | 'FORMULARY'>('OVERVIEW');
+
+    // ... other states ...
+
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
@@ -81,6 +121,84 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         inventory.forEach(i => counts[i.category]++);
         return Object.entries(counts).map(([name, value]) => ({ name: `Class ${name}`, value }));
     }, [inventory]);
+
+    const handleJoinRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setJoinStatus('loading');
+        setJoinMessage('');
+        try {
+            await createJoinRequest(joinFacilityId);
+            setJoinStatus('success');
+            setJoinMessage('Request sent! Waiting for admin approval.');
+        } catch (err: any) {
+            console.error(err);
+            setJoinStatus('error');
+            setJoinMessage(err.message || 'Failed to send request.');
+        }
+    };
+
+    if (currentUser && !currentUser.facility_id) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 animate-in fade-in duration-500">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-3xl">🏥</span>
+                        </div>
+                        <h1 className="text-2xl font-bold text-slate-900">Join a Pharmacy</h1>
+                        <p className="text-slate-600 mt-2">Enter the Facility ID of the pharmacy you work for to request access.</p>
+                    </div>
+
+                    {joinStatus === 'success' ? (
+                        <div className="text-center p-6 bg-green-50 rounded-xl border border-green-100">
+                            <h3 className="text-green-800 font-bold text-lg mb-2">Request Sent!</h3>
+                            <p className="text-green-700">Please ask your administrator to approve your request in their Staff Panel.</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-4 text-sm font-medium text-green-700 underline hover:text-green-800"
+                            >
+                                Check Status (Refresh)
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleJoinRequest} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Facility ID</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={joinFacilityId}
+                                    onChange={e => setJoinFacilityId(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                    placeholder="e.g. 123e4567-e89b..."
+                                />
+                            </div>
+
+                            {joinMessage && joinStatus === 'error' && (
+                                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+                                    {joinMessage}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={joinStatus === 'loading'}
+                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {joinStatus === 'loading' ? 'Sending Request...' : 'Send Request'}
+                            </button>
+                        </form>
+                    )}
+
+                    <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+                        <p className="text-xs text-gray-400">Don't have an ID? Ask the facility admin.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ... rest of dashboard ...
 
     const procurementList = inventory.filter(i => i.currentStock <= i.minLevel);
 
@@ -271,13 +389,13 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 <table className="w-full text-sm text-left text-gray-500">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3">Category</th>
-                            <th className="px-6 py-3">Item Name</th>
-                            <th className="px-6 py-3">Status</th>
-                            <th className="px-6 py-3">Stock / Min-Max</th>
-                            <th className="px-6 py-3">Expiry</th>
-                            <th className="px-6 py-3">Cost/Unit</th>
-                            <th className="px-6 py-3 text-right">Actions</th>
+                            <th className="px-3 sm:px-6 py-3">Category</th>
+                            <th className="px-3 sm:px-6 py-3">Item Name</th>
+                            <th className="px-3 sm:px-6 py-3">Status</th>
+                            <th className="px-3 sm:px-6 py-3 hidden sm:table-cell">Stock / Min-Max</th>
+                            <th className="px-3 sm:px-6 py-3 hidden md:table-cell">Expiry</th>
+                            <th className="px-3 sm:px-6 py-3 hidden lg:table-cell">Cost/Unit</th>
+                            <th className="px-3 sm:px-6 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -285,28 +403,30 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             const status = getStockStatus(item);
                             return (
                                 <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 sm:px-6 py-4">
                                         <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-white text-xs ${item.category === 'A' ? 'bg-red-600' : item.category === 'B' ? 'bg-yellow-500' : 'bg-gray-400'
                                             }`}>
                                             {item.category}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                    <td className="px-3 sm:px-6 py-4 font-medium text-gray-900">
                                         {item.name}
-                                        <div className="text-xs text-gray-400">Lead Time: {item.leadTime} days</div>
+                                        <div className="sm:hidden text-xs text-gray-500 mt-1">
+                                            Stock: {item.currentStock} {item.unit}
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 sm:px-6 py-4">
                                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.color}`}>
                                             {status.label}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 sm:px-6 py-4 hidden sm:table-cell">
                                         <div className="font-semibold text-gray-900">{item.currentStock} {item.unit}</div>
                                         <div className="text-xs text-gray-400">Range: {item.minLevel} - {item.maxLevel}</div>
                                     </td>
-                                    <td className="px-6 py-4">{item.expirationDate}</td>
-                                    <td className="px-6 py-4">ZMW {item.costPerUnit.toFixed(2)}</td>
-                                    <td className="px-6 py-4 text-right space-x-2">
+                                    <td className="px-3 sm:px-6 py-4 hidden md:table-cell">{item.expirationDate}</td>
+                                    <td className="px-3 sm:px-6 py-4 hidden lg:table-cell">ZMW {item.costPerUnit.toFixed(2)}</td>
+                                    <td className="px-3 sm:px-6 py-4 text-right space-x-2">
                                         <button onClick={() => handleOpenEdit(item)} className="text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>
                                         <button onClick={() => onDeleteInventory(item.id)} className="text-red-600 hover:text-red-900 font-medium">Del</button>
                                     </td>
@@ -481,8 +601,51 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         </div>
     );
 
+    // If Pharmacist has no facility, force registration
+    if (currentUser && !currentUser.facility_id) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                <div className="w-full max-w-2xl animate-in fade-in duration-500">
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to Your Pharmacy</h1>
+                        <p className="text-slate-600">To start managing your pharmacy, please register your facility details below.</p>
+                    </div>
+                    <PharmacyRegistrationForm
+                        currentUser={currentUser}
+                        onSuccess={(fid) => {
+                            if (onUpdateUser) {
+                                onUpdateUser({ ...currentUser, facility_id: fid });
+                            }
+                            // Small delay to allow DB propagation? Usually not needed if state updates.
+                            window.location.reload();
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-4 md:space-y-6 p-2 md:p-0">
+
+            {/* Facility Header */}
+            <div className="bg-gradient-to-r from-indigo-50 to-white p-4 rounded-xl shadow-sm border border-indigo-100 flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-3">
+                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700">🏥</div>
+                    <div>
+                        <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Connected Pharmacy</p>
+                        <h2 className="text-sm md:text-base font-bold text-indigo-900">{facilityName || 'Loading...'}</h2>
+                    </div>
+                </div>
+                <button
+                    onClick={handleLeaveFacility}
+                    disabled={isLeaving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-xs font-bold shadow-sm transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                    {isLeaving ? 'Disconnecting...' : 'Disconnect'}
+                </button>
+            </div>
 
             {/* Header / Tabs with Icons */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 sm:p-2">

@@ -28,7 +28,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, icon, t
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <p className="text-xs font-medium uppercase tracking-wide opacity-75">{title}</p>
-                    <p className="text-2xl font-bold mt-1">{value}</p>
+                    <p className="text-2xl font-bold mt-1">{isNaN(Number(value)) ? 0 : value}</p>
                     {subtitle && <p className="text-xs mt-1 opacity-75">{subtitle}</p>}
                     {trend && (
                         <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -45,19 +45,27 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, icon, t
 
 interface AdminMetricsPanelProps {
     facilityId?: string;
+    metrics?: AdminMetricsSummary | null;
+    initialCategory?: string;
 }
 
-const AdminMetricsPanel: React.FC<AdminMetricsPanelProps> = ({ facilityId }) => {
-    const [metrics, setMetrics] = useState<AdminMetricsSummary | null>(null);
+const AdminMetricsPanel: React.FC<AdminMetricsPanelProps> = ({ facilityId, metrics: propsMetrics, initialCategory = 'overview' }) => {
+    const [metrics, setMetrics] = useState<AdminMetricsSummary | null>(propsMetrics || null);
     const [recentLogins, setRecentLogins] = useState<AuthEvent[]>([]);
     const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [activeCategory, setActiveCategory] = useState<string>('overview');
+    const [loading, setLoading] = useState(!propsMetrics);
+    const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
 
     useEffect(() => {
-        fetchMetrics();
-        fetchRecentActivity();
-    }, [facilityId]);
+        if (propsMetrics) {
+            setMetrics(propsMetrics);
+            setLoading(false);
+            fetchRecentActivity(); // Still fetch activity logs as they aren't in summary
+        } else {
+            fetchMetrics();
+            fetchRecentActivity();
+        }
+    }, [facilityId, propsMetrics]);
 
     const fetchMetrics = async () => {
         try {
@@ -160,8 +168,8 @@ const AdminMetricsPanel: React.FC<AdminMetricsPanelProps> = ({ facilityId }) => 
                         key={cat.key}
                         onClick={() => setActiveCategory(cat.key)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeCategory === cat.key
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                             }`}
                     >
                         <span>{cat.icon}</span>
@@ -177,8 +185,8 @@ const AdminMetricsPanel: React.FC<AdminMetricsPanelProps> = ({ facilityId }) => 
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                         <MetricCard
                             title="Total Users"
-                            value={(metrics.total_patients + metrics.total_pharmacists + metrics.total_admins)}
-                            subtitle={`${metrics.active_24h} active today`}
+                            value={((metrics.total_patients || 0) + (metrics.total_pharmacists || 0) + (metrics.total_admins || 0))}
+                            subtitle={`${metrics.active_24h || 0} active today`}
                             icon="👥"
                             color="blue"
                         />
@@ -341,9 +349,9 @@ const AdminMetricsPanel: React.FC<AdminMetricsPanelProps> = ({ facilityId }) => 
                                     <div key={event.id} className="p-3 flex items-center justify-between hover:bg-gray-50">
                                         <div className="flex items-center gap-3">
                                             <span className={`px-2 py-0.5 text-xs font-bold rounded ${event.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                                                    event.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                                                        event.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-gray-100 text-gray-800'
+                                                event.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                                    event.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 {event.severity.toUpperCase()}
                                             </span>

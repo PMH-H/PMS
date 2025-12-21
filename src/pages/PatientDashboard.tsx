@@ -11,6 +11,9 @@ import Messaging from '../components/Messaging';
 import NotificationToast from '../components/NotificationToast';
 import OrderHistory from '../components/OrderHistory';
 import ProductCatalog from '../components/ProductCatalog';
+import { NotificationManager } from '../components/NotificationManager';
+import { HealthNewsWidget } from '../components/HealthNewsWidget';
+import { UserChannelsWidget } from '../components/UserChannelsWidget';
 import { useNotifications } from '../hooks/useNotifications';
 import { Medication, Prescription, PrescriptionStatus, Notification, Drug, DrugBatch, PrivacySettings, User, UserRole } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
@@ -46,41 +49,41 @@ const OrdersIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24
 
 
 const SymptomChecker: React.FC<{ onLogSearch: (term: string, type: 'SYMPTOM') => void }> = ({ onLogSearch }) => {
-  const [symptom, setSymptom] = useState('');
-  const [result, setResult] = useState('');
-  const [loading, setLoading] = useState(false);
+    const [symptom, setSymptom] = useState('');
+    const [result, setResult] = useState('');
+    const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    onLogSearch(symptom, 'SYMPTOM');
-    try {
-      const analysis = await analyzeSymptomInput(symptom);
-      setResult(analysis);
-    } catch (error) {
-      setResult('Error analyzing symptoms. Please try again.');
-    }
-    setLoading(false);
-  };
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        onLogSearch(symptom, 'SYMPTOM');
+        try {
+            const analysis = await analyzeSymptomInput(symptom);
+            setResult(analysis);
+        } catch (error) {
+            setResult('Error analyzing symptoms. Please try again.');
+        }
+        setLoading(false);
+    };
 
-  return (
-    <div className="bg-white p-4 rounded-xl shadow-sm border">
-      <h3 className="font-bold text-slate-800 mb-3">Symptom Checker</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={symptom}
-          onChange={(e) => setSymptom(e.target.value)}
-          className="w-full p-2 border rounded-lg mb-2"
-          placeholder="Enter your symptoms..."
-        />
-        <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg" disabled={loading}>
-          {loading ? 'Analyzing...' : 'Analyze'}
-        </button>
-      </form>
-      {result && <div className="mt-4 p-2 bg-gray-100 rounded-lg">{result}</div>}
-    </div>
-  );
+    return (
+        <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <h3 className="font-bold text-slate-800 mb-3">Symptom Checker</h3>
+            <form onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    value={symptom}
+                    onChange={(e) => setSymptom(e.target.value)}
+                    className="w-full p-2 border rounded-lg mb-2"
+                    placeholder="Enter your symptoms..."
+                />
+                <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg" disabled={loading}>
+                    {loading ? 'Analyzing...' : 'Analyze'}
+                </button>
+            </form>
+            {result && <div className="mt-4 p-2 bg-gray-100 rounded-lg">{result}</div>}
+        </div>
+    );
 };
 
 
@@ -88,7 +91,7 @@ const SymptomChecker: React.FC<{ onLogSearch: (term: string, type: 'SYMPTOM') =>
 
 const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     // --- STATE ---
-    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS' | 'PRESCRIPTIONS'>('HOME');
+    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'HEALTH' | 'CHANNELS'>('HOME');
     const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
     const [loadingSettings, setLoadingSettings] = useState(true);
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
@@ -98,8 +101,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
 
     // --- EFFECTS ---
     useEffect(() => {
-      setLocalNotifications(props.notifications);
-    },[props.notifications])
+        setLocalNotifications(props.notifications);
+    }, [props.notifications])
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -224,14 +227,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                         props.logAIAction('upload-prescription', `Prescription uploaded: ${id}`, 'SUCCESS');
                     }}
                     onError={(err) => {
-                      error(err)
-                      props.logAIAction('upload-prescription', err, 'ERROR');
+                        error(err)
+                        props.logAIAction('upload-prescription', err, 'ERROR');
                     }}
                 />
             </div>
         ),
         SymptomChecker: (
-          <SymptomChecker onLogSearch={props.onLogSearch} />
+            <SymptomChecker onLogSearch={props.onLogSearch} />
         )
     };
 
@@ -261,16 +264,53 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     );
     const renderProfile = () => <ProfileSettings currentUser={props.currentUser} onUpdate={props.onUpdateUser} />;
 
+    const renderMoreMenu = () => (
+        <div className="animate-in fade-in duration-500 space-y-6">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Menu</h2>
+            <div className="grid grid-cols-2 gap-4">
+                <button onClick={() => setActiveTab('PROFILE')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <ProfileIcon />
+                    </div>
+                    <span className="font-bold text-slate-700">Profile</span>
+                </button>
+                <button onClick={() => setActiveTab('ORDERS')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                        <OrdersIcon />
+                    </div>
+                    <span className="font-bold text-slate-700">My Orders</span>
+                </button>
+                <button onClick={() => setActiveTab('NOTIFICATIONS')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    </div>
+                    <span className="font-bold text-slate-700">Alerts</span>
+                </button>
+                <button onClick={() => setActiveTab('HEALTH')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                    </div>
+                    <span className="font-bold text-slate-700">Health</span>
+                </button>
+                <button onClick={() => setActiveTab('CHANNELS')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM18.5 20H20a2 2 0 002-2v-2a2 2 0 00-2-2h-2M4 20h5v-2a3 3 0 00-5.856-1.487M5 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </div>
+                    <span className="font-bold text-slate-700">Community</span>
+                </button>
+            </div>
+        </div>
+    );
+
     // --- MAIN RETURN ---
     const PillIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
 
     const navItems = [
         { key: 'HOME', label: 'Home', icon: <HomeIcon /> },
+        { key: 'PRESCRIPTIONS', label: 'My Rx', icon: <PillIcon /> },
         { key: 'SHOP', label: 'Shop', icon: <ShopIcon /> },
-        { key: 'PRESCRIPTIONS', label: 'My Rx', icon: <PillIcon /> }, // New Tab
         { key: 'MESSAGES', label: 'Chat', icon: <MessagesIcon /> },
-        { key: 'ORDERS', label: 'Orders', icon: <OrdersIcon /> },
-        { key: 'PROFILE', label: 'Profile', icon: <ProfileIcon /> },
+        { key: 'MORE', label: 'More', icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg> },
     ];
 
     return (
@@ -286,6 +326,22 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                     <div className="animate-in fade-in duration-500 space-y-4">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Prescription History</h2>
                         <div className="space-y-3">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border mb-4">
+                                <h3 className="font-bold text-slate-800 mb-2">New Prescription</h3>
+                                <PrescriptionUpload
+                                    userId={props.currentUser.id}
+                                    onUploadComplete={(id) => {
+                                        success('Prescription uploaded successfully!');
+                                        // Trigger refresh if needed, for now depend on realtime or manual refresh
+                                        if (props.onAddPrescription) {
+                                            // Mock object just to update UI immediately if possible, 
+                                            // though real data comes from DB subscription usually.
+                                        }
+                                    }}
+                                    onError={(err) => error(err)}
+                                />
+                            </div>
+                            <h3 className="font-bold text-slate-800 mb-2">History</h3>
                             {props.prescriptions.map(p => (
                                 <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center hover:bg-slate-50 transition-colors">
                                     <div className="text-left">
@@ -305,7 +361,26 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                         </div>
                     </div>
                 )}
+                {activeTab === 'NOTIFICATIONS' && (
+                    <div className="animate-in fade-in duration-500">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-4">Notifications</h2>
+                        <NotificationManager />
+                    </div>
+                )}
+                {activeTab === 'HEALTH' && (
+                    <div className="animate-in fade-in duration-500">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-4">Health News & Resources</h2>
+                        <HealthNewsWidget />
+                    </div>
+                )}
+                {activeTab === 'CHANNELS' && (
+                    <div className="animate-in fade-in duration-500">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-4">Community Channels</h2>
+                        <UserChannelsWidget />
+                    </div>
+                )}
                 {activeTab === 'PROFILE' && renderProfile()}
+                {activeTab === 'MORE' && renderMoreMenu()}
             </main>
 
             <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-gray-200 shadow-t-lg">

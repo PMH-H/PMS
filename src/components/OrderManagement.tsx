@@ -6,16 +6,18 @@ import { useNotifications } from '../hooks/useNotifications';
 
 interface CustomerOrder {
     id: string;
-    patient_id: string;
+    customer_id: string;
     prescription_id?: string;
     sale_id?: string;
     facility_id: string;
-    status: 'pending' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
+    status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'PICKED_UP' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+    delivery_type: 'PICKUP' | 'DELIVERY';
     delivery_address?: string;
     delivery_notes?: string;
-    expected_delivery_date?: string;
-    actual_delivery_date?: string;
+    expected_delivery_at?: string;
+    actual_delivery_at?: string;
     assigned_to?: string;
+    notes?: string;
     created_at: string;
     updated_at: string;
 }
@@ -28,7 +30,7 @@ interface OrderManagementProps {
 const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facilityId }) => {
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'pending' | 'preparing' | 'ready'>('all');
+    const [filter, setFilter] = useState<'all' | 'PENDING' | 'PREPARING' | 'READY' | 'PICKED_UP' | 'DELIVERED'>('all');
     const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
     const { success, error, info } = useNotifications();
 
@@ -36,17 +38,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
         fetchOrders();
 
         const channel = supabase
-            .channel('customer_orders_changes')
+            .channel('store_orders_changes')
             .on(
                 'postgres_changes',
                 {
                     event: '*',
                     schema: 'public',
-                    table: 'customer_orders',
+                    table: 'store_orders',
                     filter: facilityId ? `facility_id=eq.${facilityId}` : undefined
                 },
                 (payload) => {
-                    if(payload.eventType === 'INSERT') {
+                    if (payload.eventType === 'INSERT') {
                         info('A new order has been placed.');
                     }
                     fetchOrders();
@@ -63,8 +65,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
         setLoading(true);
         try {
             let query = supabase
-                .from('customer_orders')
-                .select('*, profiles!customer_orders_patient_id_fkey(full_name, phone)')
+                .from('store_orders')
+                .select('*, profiles!store_orders_customer_id_fkey(full_name, phone)')
                 .order('created_at', { ascending: false });
 
             if (facilityId) {
@@ -88,18 +90,18 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
     const updateOrderStatus = async (orderId: string, newStatus: CustomerOrder['status']) => {
         try {
             const { error } = await supabase
-                .from('customer_orders')
+                .from('store_orders')
                 .update({
                     status: newStatus,
-                    ...(newStatus === 'delivered' && { actual_delivery_date: new Date().toISOString() })
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', orderId);
 
             if (error) throw error;
             await createAuditLog({
-              action: `Order status changed to ${newStatus}`,
-              userId: currentUser.id,
-              details: `Order ID: ${orderId}`
+                action: `Order status changed to ${newStatus}`,
+                userId: currentUser.id,
+                details: `Order ID: ${orderId}`
             });
             success(`Order status updated to ${newStatus}`);
             fetchOrders();
@@ -112,15 +114,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
     const assignOrder = async (orderId: string) => {
         try {
             const { error } = await supabase
-                .from('customer_orders')
+                .from('store_orders')
                 .update({ assigned_to: currentUser.id })
                 .eq('id', orderId);
 
             if (error) throw error;
             await createAuditLog({
-              action: `Order assigned`,
-              userId: currentUser.id,
-              details: `Order ID: ${orderId}`
+                action: 'Order assigned',
+                userId: currentUser.id,
+                details: `Order ID: ${orderId}`
             });
             info('Order assigned to you');
             fetchOrders();
@@ -132,14 +134,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
 
     const getStatusColor = (status: string) => {
         const colors = {
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            preparing: 'bg-blue-100 text-blue-800 border-blue-300',
-            ready: 'bg-green-100 text-green-800 border-green-300',
-            picked_up: 'bg-purple-100 text-purple-800 border-purple-300',
-            delivered: 'bg-gray-100 text-gray-800 border-gray-300',
-            cancelled: 'bg-red-100 text-red-800 border-red-300'
+            PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-300',
+            PREPARING: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+            READY: 'bg-green-100 text-green-800 border-green-300',
+            PICKED_UP: 'bg-purple-100 text-purple-800 border-purple-300',
+            DELIVERED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+            COMPLETED: 'bg-gray-100 text-gray-800 border-gray-300',
+            CANCELLED: 'bg-red-100 text-red-800 border-red-300'
         };
-        return colors[status as keyof typeof colors] || colors.pending;
+        return colors[status as keyof typeof colors] || colors.PENDING;
     };
 
     if (loading) {
@@ -153,16 +157,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                     <h2 className="text-xl font-bold text-gray-900">Order Management</h2>
-                    <div className="flex gap-2">
-                        {(['all', 'pending', 'preparing', 'ready'] as const).map(status => (
+                    <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 hide-scrollbar">
+                        {(['all', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'] as const).map(status => (
                             <button
                                 key={status}
                                 onClick={() => setFilter(status)}
-                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filter === status
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap flex-shrink-0 ${filter === status
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 {status.toUpperCase()}
@@ -210,20 +214,20 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                             </div>
                         )}
 
-                        {order.expected_delivery_date && (
+                        {order.expected_delivery_at && (
                             <div className="mb-4 text-sm">
                                 <span className="text-gray-500">Expected: </span>
                                 <span className="font-medium text-gray-700">
-                                    {new Date(order.expected_delivery_date).toLocaleDateString()}
+                                    {new Date(order.expected_delivery_at).toLocaleDateString()}
                                 </span>
                             </div>
                         )}
 
                         <div className="flex gap-2">
-                            {order.status === 'pending' && (
+                            {order.status === 'PENDING' && (
                                 <>
                                     <button
-                                        onClick={() => updateOrderStatus(order.id, 'preparing')}
+                                        onClick={() => updateOrderStatus(order.id, 'PREPARING')}
                                         className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700"
                                     >
                                         Start Preparing
@@ -233,31 +237,31 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ currentUser, facility
                                             onClick={() => assignOrder(order.id)}
                                             className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-300"
                                         >
-                                            Assign to Me
+                                            Assign
                                         </button>
                                     )}
                                 </>
                             )}
-                            {order.status === 'preparing' && (
+                            {order.status === 'PREPARING' && (
                                 <button
-                                    onClick={() => updateOrderStatus(order.id, 'ready')}
+                                    onClick={() => updateOrderStatus(order.id, 'READY')}
                                     className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-green-700"
                                 >
                                     Mark Ready
                                 </button>
                             )}
-                            {order.status === 'ready' && (
+                            {order.status === 'READY' && (
                                 <button
-                                    onClick={() => updateOrderStatus(order.id, 'picked_up')}
+                                    onClick={() => updateOrderStatus(order.id, 'PICKED_UP')}
                                     className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-purple-700"
                                 >
                                     Mark Picked Up
                                 </button>
                             )}
-                            {order.status === 'picked_up' && (
+                            {order.status === 'PICKED_UP' && (
                                 <button
-                                    onClick={() => updateOrderStatus(order.id, 'delivered')}
-                                    className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-700"
+                                    onClick={() => updateOrderStatus(order.id, 'DELIVERED')}
+                                    className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700"
                                 >
                                     Mark Delivered
                                 </button>

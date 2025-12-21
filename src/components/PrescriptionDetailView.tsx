@@ -1,5 +1,6 @@
-import React from 'react';
-import { Prescription, PrescriptionStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Prescription, PrescriptionStatus, AuditLog } from '../types';
+import { getAuditLogs } from '../services/database';
 
 interface PrescriptionDetailViewProps {
     prescription: Prescription;
@@ -8,6 +9,27 @@ interface PrescriptionDetailViewProps {
 
 const PrescriptionDetailView: React.FC<PrescriptionDetailViewProps> = ({ prescription, onClose }) => {
     // Helper to format date
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+    const [loadingLogs, setLoadingLogs] = useState(true);
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            setLoadingLogs(true);
+            try {
+                const logs = await getAuditLogs({ entityId: prescription.id, entityType: 'prescriptions' });
+                setAuditLogs(logs);
+            } catch (err) {
+                console.error("Failed to fetch logs", err);
+            } finally {
+                setLoadingLogs(false);
+            }
+        };
+
+        if (prescription?.id) {
+            fetchLogs();
+        }
+    }, [prescription?.id]);
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -159,36 +181,48 @@ const PrescriptionDetailView: React.FC<PrescriptionDetailViewProps> = ({ prescri
                     </div>
 
                     {/* Timeline / History */}
+                    {/* Timeline / Real History */}
                     <div className="border-t border-gray-100 pt-6">
-                        <h3 className="font-bold text-slate-800 mb-4">History</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-slate-900">Full Activity History</h3>
+                            {loadingLogs && <span className="text-xs text-gray-400 animate-pulse">Loading logs...</span>}
+                        </div>
+
                         <div className="relative border-l-2 border-gray-100 ml-3 space-y-6">
+                            {/* Always show creation */}
                             <div className="ml-6 relative">
                                 <div className="absolute -left-[31px] w-4 h-4 rounded-full bg-indigo-100 border-2 border-indigo-500"></div>
                                 <div className="font-semibold text-sm text-slate-900">Request Submitted</div>
                                 <div className="text-xs text-slate-500">{formatDate(prescription.created_at)}</div>
                             </div>
 
-                            {prescription.status !== 'PENDING' && (
-                                <div className="ml-6 relative">
-                                    <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 ${prescription.status === 'APPROVED' ? 'bg-green-100 border-green-500' :
-                                            prescription.status === 'REJECTED' ? 'bg-red-100 border-red-500' : 'bg-gray-100 border-gray-400'
-                                        }`}></div>
+                            {/* Render Audit Logs */}
+                            {auditLogs.map((log) => (
+                                <div key={log.id} className="ml-6 relative">
+                                    <div className="absolute -left-[31px] w-4 h-4 rounded-full bg-gray-100 border-2 border-gray-400"></div>
                                     <div className="font-semibold text-sm text-slate-900">
-                                        {prescription.status === 'APPROVED' ? 'Approved by Pharmacist' :
-                                            prescription.status === 'REJECTED' ? 'Request Declined' : 'Updated'}
+                                        {log.action}
                                     </div>
-                                    <div className="text-xs text-slate-500">{prescription.updated_at ? formatDate(prescription.updated_at) : 'N/A'}</div>
+                                    <div className="text-xs text-slate-500 flex flex-col gap-0.5">
+                                        <span>{formatDate(log.created_at)}</span>
+                                        {log.profiles?.full_name && (
+                                            <span className="text-indigo-600">by {log.profiles.full_name} ({log.profiles.role})</span>
+                                        )}
+                                        {log.details && (
+                                            <span className="text-gray-400 italic mt-1">
+                                                {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-
-                            {prescription.status === 'PICKED_UP' && (
-                                <div className="ml-6 relative">
-                                    <div className="absolute -left-[31px] w-4 h-4 rounded-full bg-blue-100 border-2 border-blue-500"></div>
-                                    <div className="font-semibold text-sm text-slate-900">Medication Dispensed</div>
-                                    <div className="text-xs text-slate-500">Ready for pickup or collected</div>
-                                </div>
-                            )}
+                            ))}
                         </div>
+
+                        {auditLogs.length === 0 && !loadingLogs && (
+                            <div className="text-xs text-gray-400 italic ml-8 mt-2">
+                                No additional activity recorded.
+                            </div>
+                        )}
                     </div>
 
                 </div>

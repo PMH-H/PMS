@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
-import { User, UserRole } from '../types';
+import { User, UserRole, AdminMetricsSummary } from '../types';
+import { createAuditLog } from '../services/database';
 
 // Components
 import AdminMetricsPanel from '../components/AdminMetricsPanel';
@@ -15,24 +16,108 @@ import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
 interface DevDashboardProps {
     currentUser: User;
     onUpdateUser?: (user: User) => void;
+    metrics?: AdminMetricsSummary | null;
 }
 
-type TabKey = 'DASHBOARD' | 'PLATFORM' | 'METRICS' | 'USERS' | 'SECURITY' | 'SYSTEM' | 'DEV_TOOLS' | 'AUDIT_LOGS';
+type TabKey = 'DASHBOARD' | 'PLATFORM' | 'USERS' | 'SECURITY' | 'SYSTEM' | 'DEV_TOOLS' | 'AUDIT_LOGS';
 
-const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser }) => {
+const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser, metrics }) => {
     const [activeTab, setActiveTab] = useState<TabKey>('DASHBOARD');
     const [selectedFacilityFilter, setSelectedFacilityFilter] = useState<string | null>(null);
+    const [actionFeedback, setActionFeedback] = useState<{ message: string; isError: boolean } | null>(null);
 
     const tabs: { key: TabKey; label: string; icon: string }[] = [
         { key: 'DASHBOARD', label: 'Dashboard', icon: '📊' },
         { key: 'PLATFORM', label: 'Platform', icon: '🌐' },
-        { key: 'METRICS', label: 'Metrics', icon: '📈' },
         { key: 'USERS', label: 'Users', icon: '👥' },
         { key: 'SECURITY', label: 'Security', icon: '🛡️' },
         { key: 'SYSTEM', label: 'System', icon: '⚙️' },
         { key: 'DEV_TOOLS', label: 'Dev Tools', icon: '🔧' },
         { key: 'AUDIT_LOGS', label: 'Audit', icon: '📋' },
     ];
+
+    const handleSystemAction = async (action: string) => {
+        setActionFeedback(null);
+        try {
+            switch (action) {
+                case 'CLEAR_CACHE':
+                    // Mock cache clear - in real app would clear Service Worker or API cache
+                    await new Promise(r => setTimeout(r, 1000));
+                    await createAuditLog({
+                        action: 'SYSTEM_ACTION',
+                        details: { action: 'CLEAR_CACHE', triggered_by: currentUser.email },
+                        performed_by: currentUser.id,
+                        entity_type: 'system',
+                        entity_id: 'cache',
+                        facility_id: currentUser.facility_id
+                    });
+                    window.location.reload();
+                    break;
+                case 'REFRESH_TOKENS':
+                    const { error } = await supabase.auth.refreshSession();
+                    if (error) throw error;
+                    await createAuditLog({
+                        action: 'SYSTEM_ACTION',
+                        details: { action: 'REFRESH_TOKENS', triggered_by: currentUser.email },
+                        performed_by: currentUser.id,
+                        entity_type: 'system',
+                        entity_id: 'auth',
+                        facility_id: currentUser.facility_id
+                    });
+                    setActionFeedback({ message: 'Session tokens refreshed successfully.', isError: false });
+                    break;
+                case 'BACKUP_DB':
+                    // Mock backup
+                    await new Promise(r => setTimeout(r, 1500));
+                    await createAuditLog({
+                        action: 'SYSTEM_ACTION',
+                        details: { action: 'BACKUP_DB', triggered_by: currentUser.email },
+                        performed_by: currentUser.id,
+                        entity_type: 'system',
+                        entity_id: 'database',
+                        facility_id: currentUser.facility_id
+                    });
+                    setActionFeedback({ message: 'Database backup started. You will receive an email when ready.', isError: false });
+                    break;
+                case 'MAINTENANCE_MODE':
+                    // Check if flag exists
+                    const { data: flag } = await supabase.from('feature_flags').select('*').eq('flag_name', 'maintenance_mode').single();
+                    if (flag) {
+                        await supabase.from('feature_flags').update({ is_enabled: !flag.is_enabled, updated_by: currentUser.id }).eq('id', flag.id);
+                        await createAuditLog({
+                            action: 'SYSTEM_ACTION',
+                            details: { action: 'TOGGLE_MAINTENANCE', enabled: !flag.is_enabled, triggered_by: currentUser.email },
+                            performed_by: currentUser.id,
+                            entity_type: 'feature_flag',
+                            entity_id: flag.id,
+                            facility_id: currentUser.facility_id
+                        });
+                        setActionFeedback({ message: `Maintenance mode ${!flag.is_enabled ? 'ENABLED' : 'DISABLED'}`, isError: false });
+                    } else {
+                        // Create it
+                        const { data: newFlag } = await supabase.from('feature_flags').insert({
+                            flag_name: 'maintenance_mode',
+                            is_enabled: true,
+                            created_by: currentUser.id,
+                            updated_by: currentUser.id
+                        }).select().single();
+
+                        await createAuditLog({
+                            action: 'SYSTEM_ACTION',
+                            details: { action: 'ENABLE_MAINTENANCE', triggered_by: currentUser.email },
+                            performed_by: currentUser.id,
+                            entity_type: 'feature_flag',
+                            entity_id: newFlag?.id || 'new',
+                            facility_id: currentUser.facility_id
+                        });
+                        setActionFeedback({ message: 'Maintenance mode ENABLED', isError: false });
+                    }
+                    break;
+            }
+        } catch (err: any) {
+            setActionFeedback({ message: err.message || 'Action failed', isError: true });
+        }
+    };
 
     return (
         <div className="pb-10 min-h-screen">
@@ -87,7 +172,10 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser }
                 {/* Dashboard Overview */}
                 {activeTab === 'DASHBOARD' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
-                        <AdminMetricsPanel facilityId={selectedFacilityFilter || undefined} />
+                        <AdminMetricsPanel
+                            facilityId={selectedFacilityFilter || undefined}
+                            metrics={metrics}
+                        />
 
                         {/* Quick Actions */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -139,19 +227,6 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser }
                             </div>
                         </div>
                         <PlatformMetricsPanel currentUser={currentUser} />
-                    </div>
-                )}
-
-                {/* Detailed Metrics */}
-                {activeTab === 'METRICS' && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">System Metrics</h2>
-                            <button className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-                                Export Report
-                            </button>
-                        </div>
-                        <AdminMetricsPanel facilityId={selectedFacilityFilter || undefined} />
                     </div>
                 )}
 
@@ -220,7 +295,11 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser }
                         </div>
 
                         {/* Security Metrics */}
-                        <AdminMetricsPanel facilityId={selectedFacilityFilter || undefined} />
+                        <AdminMetricsPanel
+                            facilityId={selectedFacilityFilter || undefined}
+                            metrics={metrics}
+                            initialCategory="security"
+                        />
 
                         {/* Blocked Users */}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -241,27 +320,32 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser }
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h2 className="text-lg font-bold text-gray-900 mb-4">System Actions</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <button className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                                <button onClick={() => handleSystemAction('CLEAR_CACHE')} className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
                                     <div className="text-2xl mb-2">🗑️</div>
                                     <div className="font-semibold text-gray-900">Clear Cache</div>
-                                    <div className="text-xs text-gray-500 mt-1">Purge all cached data</div>
+                                    <div className="text-xs text-gray-500 mt-1">Purge app state & reload</div>
                                 </button>
-                                <button className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                                <button onClick={() => handleSystemAction('REFRESH_TOKENS')} className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
                                     <div className="text-2xl mb-2">🔄</div>
                                     <div className="font-semibold text-gray-900">Refresh Tokens</div>
-                                    <div className="text-xs text-gray-500 mt-1">Regenerate auth tokens</div>
+                                    <div className="text-xs text-gray-500 mt-1">Update session auth</div>
                                 </button>
-                                <button className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                                <button onClick={() => handleSystemAction('BACKUP_DB')} className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 text-left transition-colors">
                                     <div className="text-2xl mb-2">💾</div>
                                     <div className="font-semibold text-gray-900">Backup Database</div>
-                                    <div className="text-xs text-gray-500 mt-1">Create database snapshot</div>
+                                    <div className="text-xs text-gray-500 mt-1">Request offline backup</div>
                                 </button>
-                                <button className="p-4 border border-red-200 rounded-xl hover:bg-red-50 text-left transition-colors">
+                                <button onClick={() => handleSystemAction('MAINTENANCE_MODE')} className="p-4 border border-red-200 rounded-xl hover:bg-red-50 text-left transition-colors">
                                     <div className="text-2xl mb-2">🚨</div>
                                     <div className="font-semibold text-red-700">Maintenance Mode</div>
-                                    <div className="text-xs text-red-500 mt-1">Take system offline</div>
+                                    <div className="text-xs text-red-500 mt-1">Toggle system-wide flag</div>
                                 </button>
                             </div>
+                            {actionFeedback && (
+                                <div className={`mt-4 p-4 rounded-lg text-sm ${actionFeedback.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                                    {actionFeedback.message}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

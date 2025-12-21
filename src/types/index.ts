@@ -6,7 +6,8 @@ export enum UserRole {
   SUPER_ADMIN_DEV = 'super_admin_dev',
   WORKER = 'worker',        // Deprecated: treated as pharmacist
   CASHIER = 'cashier',       // Deprecated: treated as pharmacist
-  PRESCRIBER = 'prescriber'
+  PRESCRIBER = 'prescriber',
+  RIDER = 'rider'
 }
 
 // Helper function to normalize roles (worker/cashier → pharmacist)
@@ -45,6 +46,7 @@ export function getRoleDisplayName(role: UserRole): string {
     case UserRole.SUPER_ADMIN_BMS: return 'BMS Administrator';
     case UserRole.SUPER_ADMIN_DEV: return 'System Administrator';
     case UserRole.PRESCRIBER: return 'Prescriber';
+    case UserRole.RIDER: return 'Delivery Rider';
     default: return role;
   }
 }
@@ -182,7 +184,7 @@ export interface AuditLog {
   action: string;
   new_data: any;
   previous_data?: any;
-  user_id: string;
+  performed_by: string; // Matches DB column (was user_id)
   created_at: string;
 }
 
@@ -703,4 +705,317 @@ export interface PrescriberActivity {
   type: PrescriberActivityType;
   timestamp: string;
   details: string;
+}
+
+// =====================================================
+// RIDER & DISPATCH SYSTEM TYPES
+// =====================================================
+
+export enum RiderStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ON_BREAK = 'ON_BREAK',
+  OFFLINE = 'OFFLINE'
+}
+
+export enum DeliveryStatus {
+  PENDING = 'PENDING',
+  ASSIGNED = 'ASSIGNED',
+  PICKED_UP = 'PICKED_UP',
+  IN_TRANSIT = 'IN_TRANSIT',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED'
+}
+
+export interface Rider {
+  id: string;
+  user_id?: string;
+  facility_id?: string;
+  full_name: string;
+  phone: string;
+  email?: string;
+  vehicle_type?: 'motorcycle' | 'bicycle' | 'car' | 'walking';
+  vehicle_registration?: string;
+  license_number?: string;
+  profile_photo_url?: string;
+  is_available: boolean;
+  is_active: boolean;
+  current_location?: any;
+  total_deliveries: number;
+  average_rating: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DeliveryStatusType = 'pending' | 'assigned' | 'rider_accepted' | 'picked_up' | 'in_transit' | 'delivered' | 'failed' | 'returned';
+
+export interface Delivery {
+  id: string;
+  order_id: string;
+  rider_id?: string;
+  status: DeliveryStatusType;
+  assigned_at?: string;
+  rider_accepted_at?: string;
+  pickup_location?: any;
+  delivery_location?: any;
+  current_location?: any;
+  distance_km?: number;
+  estimated_time_minutes?: number;
+  picked_up_at?: string;
+  delivered_at?: string;
+  proof_of_delivery_url?: string;
+  recipient_name?: string;
+  recipient_signature_url?: string;
+  failed_at?: string;
+  failure_reason?: string;
+  delivery_attempts: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+  name?: string;
+}
+
+export interface DispatchAssignment {
+  delivery_id: string;
+  rider_id: string;
+  assigned_at: string;
+  estimated_pickup_time: string;
+  estimated_delivery_time: string;
+}
+
+// =====================================================
+// STORE, OTC & COSMETICS SYSTEM
+// =====================================================
+
+export enum ProductCategory {
+  OTC_MEDICINES = 'OTC_MEDICINES',
+  COSMETICS = 'COSMETICS',
+  SUPPLEMENTS = 'SUPPLEMENTS',
+  PERSONAL_CARE = 'PERSONAL_CARE',
+  WELLNESS = 'WELLNESS',
+  FIRST_AID = 'FIRST_AID'
+}
+
+export interface StoreProduct {
+  id: string;
+  facility_id: string;
+  name: string;
+  description?: string;
+  category: ProductCategory;
+  sku: string;
+  price_cents: number; // Store price in cents
+  stock_quantity: number;
+  reorder_level: number;
+  supplier_id?: string;
+  image_url?: string;
+  is_active: boolean;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SignupRequest {
+  id: string;
+  email: string;
+  user_id?: string;
+  requested_role: 'patient' | 'prescriber' | 'pharmacist_admin';
+  full_name: string;
+  phone?: string;
+  hpcz_number?: string;
+  license_document_url?: string;
+  specialization?: string;
+  facility_name?: string;
+  facility_address?: string;
+  status: 'pending' | 'hpcz_verified' | 'admin_review' | 'approved' | 'rejected';
+  hpcz_verification_response?: any;
+  hpcz_verified_at?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreOrder {
+  id: string;
+  customer_id: string;
+  facility_id: string;
+  items: StoreOrderItem[];
+  total_price_cents: number;
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'PICKED_UP' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+  delivery_type: 'PICKUP' | 'DELIVERY';
+  delivery_address?: string;
+  delivery_notes?: string;
+  expected_delivery_at?: string;
+  actual_delivery_at?: string;
+  assigned_to?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreOrderItem {
+  product_id: string;
+  quantity: number;
+  unit_price_cents: number;
+}
+
+// =====================================================
+// NOTIFICATION SYSTEM
+// =====================================================
+
+export enum NotificationType {
+  ORDER_UPDATE = 'ORDER_UPDATE',
+  HEALTH_ALERT = 'HEALTH_ALERT',
+  NEWS = 'NEWS',
+  CHANNEL_MESSAGE = 'CHANNEL_MESSAGE',
+  PROMOTION = 'PROMOTION',
+  PRESCRIPTION_READY = 'PRESCRIPTION_READY'
+}
+
+export interface UserNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  is_read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationPreference {
+  user_id: string;
+  order_updates: boolean;
+  health_alerts: boolean;
+  news: boolean;
+  channel_messages: boolean;
+  promotions: boolean;
+  email_notifications: boolean;
+  sms_notifications: boolean;
+  updated_at: string;
+}
+
+// =====================================================
+// HEALTH NEWS & ARTICLES
+// =====================================================
+
+export interface HealthArticle {
+  id: string;
+  facility_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  summary?: string;
+  category: 'MEDICATION' | 'WELLNESS' | 'DISEASE' | 'PREVENTION' | 'LIFESTYLE';
+  tags?: string[];
+  image_url?: string;
+  is_published: boolean;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// =====================================================
+// CHANNELS & BROADCASTS
+// =====================================================
+
+export enum ChannelType {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+  COMMUNITY = 'COMMUNITY'
+}
+
+export interface UserChannel {
+  id: string;
+  creator_id: string;
+  facility_id: string;
+  name: string;
+  description?: string;
+  type: ChannelType;
+  image_url?: string;
+  member_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChannelMembership {
+  channel_id: string;
+  user_id: string;
+  role: 'ADMIN' | 'MODERATOR' | 'MEMBER';
+  joined_at: string;
+}
+
+export interface ChannelMessage {
+  id: string;
+  channel_id: string;
+  sender_id: string;
+  message: string;
+  media_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Broadcast {
+  id: string;
+  channel_id: string;
+  sender_id: string;
+  title: string;
+  content: string;
+  broadcast_type: 'MESSAGE' | 'ALERT' | 'ANNOUNCEMENT';
+  recipient_count: number;
+  delivery_status: 'DRAFT' | 'SCHEDULED' | 'SENT' | 'FAILED';
+  scheduled_at?: string;
+  sent_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// =====================================================
+// METRICS & ANALYTICS
+// =====================================================
+
+export interface StoreMetrics {
+  date: string;
+  facility_id: string;
+  total_orders: number;
+  total_revenue_cents: number;
+  avg_order_value_cents: number;
+  top_products: Array<{ product_id: string; name: string; sold: number }>;
+  category_breakdown: Record<string, number>;
+}
+
+export interface ChannelMetrics {
+  channel_id: string;
+  date: string;
+  new_members: number;
+  messages_sent: number;
+  engagement_rate: number;
+  active_users: number;
+}
+
+export interface HealthNewsMetrics {
+  article_id: string;
+  views: number;
+  shares: number;
+  avg_read_time_seconds: number;
+  engagement_rate: number;
+}
+
+export interface PlatformMetrics {
+  date: string;
+  facility_id: string;
+  total_users: number;
+  active_users: number;
+  store_revenue_cents: number;
+  customer_satisfaction: number;
+  system_uptime_percent: number;
 }

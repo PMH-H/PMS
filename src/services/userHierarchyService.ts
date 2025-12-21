@@ -226,7 +226,20 @@ export const getStaffByAdmin = async (
         });
 
         if (error) throw error;
-        return { data: data || [], error: null };
+
+        // Map the new column names (staff_*) to the interface matches (pharmacist_*)
+        const mappedData = (data || []).map((item: any) => ({
+            pharmacist_id: item.staff_id,
+            pharmacist_name: item.staff_name,
+            pharmacist_email: item.staff_email,
+            role: item.staff_role,
+            patient_count: item.patient_count,
+            prescriptions_today: item.prescriptions_today,
+            prescriptions_week: item.prescriptions_week,
+            last_active: item.last_active
+        }));
+
+        return { data: mappedData, error: null };
     } catch (err) {
         console.error('Error fetching admin staff:', err);
         return { data: [], error: err as Error };
@@ -422,7 +435,90 @@ export const getUserHierarchy = async (facilityId?: string): Promise<{
     }
 };
 
+// Link staff to facility
+// Link staff member (RPC)
+export const linkStaffToFacility = async (email: string) => {
+    try {
+        const { data, error } = await supabase.rpc('admin_link_staff_member', { target_email: email });
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error("RPC Error admin_link_staff_member:", err);
+        throw err;
+    }
+};
+
+// Join Request Functions
+export const createJoinRequest = async (facilityId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+        .from('facility_join_requests')
+        .insert([{ user_id: user.id, facility_id: facilityId }])
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const getJoinRequests = async (facilityId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('facility_join_requests')
+            .select('*, profiles:user_id(full_name, email, role)')
+            .eq('facility_id', facilityId)
+            .eq('status', 'PENDING')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch (err) {
+        console.error('Error fetching join requests:', err);
+        return { data: [], error: err as Error };
+    }
+};
+
+export const approveJoinRequest = async (requestId: string) => {
+    const { data, error } = await supabase.rpc('approve_join_request', { p_request_id: requestId });
+    if (error) throw error;
+    return data;
+};
+
+export const rejectJoinRequest = async (requestId: string) => {
+    const { data, error } = await supabase
+        .from('facility_join_requests')
+        .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+// Leave facility (Direct Update - Trigger handles logic)
+export const leaveFacility = async () => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('No user logged in');
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({ facility_id: null, updated_at: new Date().toISOString() })
+            .eq('id', user.id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error("Error leaving facility:", err);
+        throw err;
+    }
+};
+
 export default {
+    leaveFacility,
     assignPatientToPharmacist,
     unassignPatient,
     getPatientsByPharmacist,

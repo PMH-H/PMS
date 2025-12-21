@@ -6,7 +6,8 @@ import ChatAssistant from '@/components/ChatAssistant';
 import Login from '@/components/Login';
 import ProfileSetup from '@/components/ProfileSetup';
 import ProfileSettings from '@/pages/ProfileSettings';
-import NotificationSystem from '@/components/NotificationSystem';
+import { NotificationProvider } from '@/context/NotificationContext';
+import { AppProvider } from '@/context/AppContext';
 // Lazy load dashboards to reduce initial bundle size
 const PatientDashboard = React.lazy(() => import('@/pages/PatientDashboard'));
 const PharmacistDashboard = React.lazy(() => import('@/pages/PharmacistDashboard'));
@@ -17,52 +18,45 @@ const PrescriberDashboard = React.lazy(() => import('@/components/prescriber/Pre
 
 import { supabase } from '@/services/supabase';
 import {
-  getItems,
-  getBatches,
   processSale,
-  getStockAlerts,
   createPrescription,
-  getPrescriptions,
   updatePrescriptionStatus,
   createSearchLog,
   createAuditLog
 } from '@/services/database';
 import { UserRole, User, Prescription, Notification, Drug, DrugBatch, Sale, AuditLog, SearchLog, InventoryItem, PrescriberProfile } from '@/types';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
-import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { useDashboardData } from '@/hooks/useDashboardData';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [prescriberProfile, setPrescriberProfile] = useState<PrescriberProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [pendingUserData, setPendingUserData] = useState<{ userId: string; email: string } | null>(null);
 
-  // Data state initialized with empty arrays to prevent crashes
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [drugs, setDrugs] = useState<Drug[]>([]);
-  const [batches, setBatches] = useState<DrugBatch[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
+  const {
+    prescriptions,
+    inventory,
+    batches,
+    sales,
+    loading: dataLoading,
+    adminMetrics,
+    refresh
+  } = useDashboardData(currentUser);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setPrescriberProfile(null);
-    setDrugs([]); setBatches([]); setSales([]); setPrescriptions([]); setNotifications([]);
   };
 
   useIdleTimer(handleLogout, 15 * 60 * 1000);
 
-  useRealtimeSubscription(
-    currentUser ? ['prescriptions', 'alerts', 'items', 'item_batches', 'sales'] : [],
-    (table, payload) => {
-      if (currentUser) {
-        console.log(`Realtime update on ${table}:`, payload);
-        fetchAllData(currentUser.role, currentUser.id, currentUser.facility_id);
-      }
-    }
-  );
+  // Realtime is now handled in NotificationContext and specific hooks
+  // But we might want to trigger a data refresh on certain events?
+  // ideally useDashboardData should handle its own subscriptions or we pass a signal.
+  // For now, relying on NotificationContext to notify user, and they might refresh, or we can add auto-refresh logic later.
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -70,7 +64,7 @@ const App: React.FC = () => {
       if (session?.user) {
         await fetchUserProfile(session.user.id, session.user.email || '');
       } else {
-        setLoading(false);
+        setAuthLoading(false);
       }
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user && !currentUser) {
@@ -86,7 +80,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchUserProfile = async (userId: string, email: string) => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -109,15 +103,14 @@ const App: React.FC = () => {
             .select('*')
             .eq('user_id', user.id)
             .single();
-            
+
           if (profileError && profileError.code !== 'PGRST116') {
-             console.error("Error fetching prescriber profile:", profileError);
+            console.error("Error fetching prescriber profile:", profileError);
           } else {
-             setPrescriberProfile(profile as PrescriberProfile);
+            setPrescriberProfile(profile as PrescriberProfile);
           }
         }
 
-        await fetchAllData(user.role, user.id, user.facility_id);
       } else {
         setPendingUserData({ userId, email });
         setShowProfileSetup(true);
@@ -128,44 +121,7 @@ const App: React.FC = () => {
       setCurrentUser(null);
       setPrescriberProfile(null);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAllData = async (role: UserRole, userId: string, facilityId?: string) => {
-    if (role === UserRole.PRESCRIBER) return;
-
-    const [itemsResult, patientPrescriptionsResult] = await Promise.allSettled([
-      getItems(),
-      role === UserRole.CUSTOMER ? getPrescriptions(userId) : Promise.resolve([])
-    ]);
-
-    if (itemsResult.status === 'fulfilled') {
-      setDrugs(itemsResult.value || []);
-    }
-    if (patientPrescriptionsResult.status === 'fulfilled') {
-      setPrescriptions(patientPrescriptionsResult.value || []);
-    }
-
-    if (facilityId) {
-      const [batchesResult, salesResult, alertsResult, facilityRxsResult] = await Promise.allSettled([
-        getBatches({ facilityId }),
-        supabase.from('sales').select('*').eq('facility_id', facilityId),
-        getStockAlerts(facilityId),
-        getPrescriptions(undefined, facilityId) // Fetch all for facility
-      ]);
-
-      const newBatches = batchesResult.status === 'fulfilled' ? batchesResult.value || [] : [];
-      const newSales = salesResult.status === 'fulfilled' ? salesResult.value.data || [] : [];
-      const newNotifications = alertsResult.status === 'fulfilled' ? alertsResult.value || [] : [];
-      const facilityRxs = facilityRxsResult.status === 'fulfilled' ? facilityRxsResult.value || [] : [];
-
-      setBatches(newBatches);
-      setSales(newSales);
-      setNotifications(newNotifications as Notification[]);
-
-      const combined = [...prescriptions, ...facilityRxs];
-      setPrescriptions(Array.from(new Map(combined.map(p => [p.id, p])).values()));
+      setAuthLoading(false);
     }
   };
 
@@ -177,9 +133,31 @@ const App: React.FC = () => {
   };
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const loading = authLoading || (currentUser && dataLoading && currentUser.role !== UserRole.PRESCRIBER); // Prescriber manages own loading
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+  if (authLoading) {
+    const tips = [
+      "💊 PharmAI uses AI to detect drug interactions",
+      "📦 Track your inventory with ABC analysis",
+      "🔒 Your data is encrypted and secure",
+      "📱 Works offline for essential features"
+    ];
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-emerald-200 rounded-full animate-pulse"></div>
+            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-emerald-600 rounded-full animate-spin"></div>
+          </div>
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Loading PharmAI</h2>
+            <p className="text-sm text-gray-500 max-w-xs">{randomTip}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!currentUser) {
@@ -191,7 +169,7 @@ const App: React.FC = () => {
   const renderDashboard = () => {
     const commonProps = { currentUser: currentUser!, onUpdateUser: setCurrentUser };
 
-    const safeDrugs = Array.isArray(drugs) ? drugs : [];
+    const safeDrugs = Array.isArray(inventory) ? inventory : [];
     const safeBatches = Array.isArray(batches) ? batches : [];
 
     const inventorySummary: InventoryItem[] = safeDrugs.map(drug => ({
@@ -202,18 +180,18 @@ const App: React.FC = () => {
 
     switch (currentUser.role) {
       case UserRole.CUSTOMER:
-        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={drugs} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={notifications} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
+        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={inventory} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={[]} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
-        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
+        return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={[]} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
       case UserRole.ADMIN:
-        return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={notifications} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
+        return <AdminDashboard {...commonProps} inventory={inventorySummary} alerts={[]} sales={sales} staff={[]} onAddStaff={(s) => { }} onUpdateStaff={(s) => { }} />;
       case UserRole.SUPER_ADMIN_BMS:
-        return <SuperAdminDashboard {...commonProps} />;
+        return <SuperAdminDashboard {...commonProps} metrics={adminMetrics} />;
       case UserRole.SUPER_ADMIN_DEV:
-        return <DevDashboard {...commonProps} />;
+        return <DevDashboard {...commonProps} metrics={adminMetrics} />;
       case UserRole.PRESCRIBER:
         if (!prescriberProfile) {
-            return <div className="flex items-center justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div><div>Loading prescriber profile...</div></div>; 
+          return <div className="flex items-center justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div><div>Loading prescriber profile...</div></div>;
         }
         return <PrescriberDashboard {...commonProps} prescriberProfile={prescriberProfile} />;
       default:
@@ -222,50 +200,54 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
-      <main className="pb-20">
-        <React.Suspense fallback={
-          <div className="flex items-center justify-center p-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-          </div>
-        }>
-          {renderDashboard()}
-        </React.Suspense>
-      </main>
-      {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
-      {currentUser && <NotificationSystem userId={currentUser.id} />}
+    <AppProvider>
+      <NotificationProvider currentUser={currentUser}>
+        <div className="min-h-screen bg-slate-50 font-sans">
+          <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
+          <main className="pb-20">
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            }>
+              {renderDashboard()}
+            </React.Suspense>
+          </main>
+          {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
+          {/* Legacy NotificationSystem removed, replaced by Context. Consumers in dashboards should enable their own toast UI if needed, or we add a Global ToastContainer here */}
 
-      {showProfileModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
-          <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
-              <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          {showProfileModal && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
+              <div
+                className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+                onClick={e => e.stopPropagation()}
               >
-                <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                  <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
+                  <button
+                    onClick={() => setShowProfileModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="p-4">
+                  <ProfileSettings
+                    currentUser={currentUser}
+                    onUpdate={(updatedUser) => {
+                      setCurrentUser(updatedUser);
+                      setShowProfileModal(false);
+                    }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="p-4">
-              <ProfileSettings
-                currentUser={currentUser}
-                onUpdate={(updatedUser) => {
-                  setCurrentUser(updatedUser);
-                  setShowProfileModal(false);
-                }}
-              />
-            </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </NotificationProvider>
+    </AppProvider>
   );
 };
 
