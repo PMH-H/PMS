@@ -12,6 +12,8 @@ import PrescriptionManager from '../components/PrescriptionManager';
 import AdminStaffPanel from '../components/AdminStaffPanel';
 import StoreProductManager from '../components/StoreProductManager';
 import ComprehensiveMetricsDashboard from '../components/ComprehensiveMetricsDashboard';
+import ReportsDashboard from '../components/ReportsDashboard';
+import { NetworkInventory } from '../components/NetworkInventory';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend
@@ -38,8 +40,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const TAB_GROUPS: Record<TabGroup, string[]> = {
         OVERVIEW: ['DASHBOARD'],
-        OPERATIONS: ['PRESCRIPTIONS', 'INVENTORY', 'PROCUREMENT', 'PROMOTIONS'],
-        ANALYTICS: ['SALES', 'INSIGHTS', 'ANALYTICS', 'METRICS'],
+        OPERATIONS: ['PRESCRIPTIONS', 'INVENTORY', 'NETWORK', 'PROCUREMENT', 'PROMOTIONS'],
+        ANALYTICS: ['SALES', 'INSIGHTS', 'ANALYTICS', 'METRICS', 'REPORTS'],
         MANAGEMENT: ['STAFF', 'COMPLIANCE', 'STORE'],
         SETTINGS: ['PROFILE', 'FACILITY']
     };
@@ -485,6 +487,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <>
                         {activeSubTab === 'PRESCRIPTIONS' && currentUser && <PrescriptionManager currentUser={currentUser} facilityId={currentUser.facility_id} />}
                         {activeSubTab === 'INVENTORY' && renderInventory()}
+                        {activeSubTab === 'NETWORK' && currentUser && <NetworkInventory currentUser={currentUser} />}
                         {activeSubTab === 'PROCUREMENT' && currentUser && <PurchaseOrderManager currentUser={currentUser} facilityId={currentUser.facility_id || ''} />}
                         {activeSubTab === 'PROMOTIONS' && currentUser && <PromotionManager currentUser={currentUser} facilityId={currentUser.facility_id} />}
                     </>
@@ -544,6 +547,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         )}
                     </div>
                 )}
+                {activeSubTab === 'REPORTS' && <ReportsDashboard />}
             </div>
         </div>
     );

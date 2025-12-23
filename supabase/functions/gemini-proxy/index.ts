@@ -252,6 +252,54 @@ serve(async (req) => {
         });
       }
 
+      case 'generateMarketReport': {
+        const { trends, predictions } = payload ?? {};
+        // Concise summary generation
+        const prompt = `
+          Analyze the following pharmaceutical market trends and disease predictions for Zambia.
+          Trends: ${JSON.stringify(trends)}
+          Predictions: ${JSON.stringify(predictions)}
+          
+          Provide a professional HTML-formatted Executive Summary (no markdown, just <b>, <p>, <ul> tags) suitable for a dashboard.
+          Focus on:
+          1. Supply Chain Risks
+          2. Top performing categories
+          3. Recommended Actions
+          
+          Keep it under 200 words.
+        `;
+
+        result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+
+        textResult = result?.response?.text?.();
+        // Return raw text (HTML) as response
+        return new Response(JSON.stringify({ response: textResult }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'generateMarketPredictions': {
+        // This would ideally take historical data. For now, we ask Gemini to hypothesize based on seasonality.
+        // In a real system, we'd pass CSV data.
+        const prompt = `
+            Act as a pharmaceutical supply chain analyst for Southern Africa.
+            Generate 3 plausible supply chain predictions for the upcoming month based on typical seasonality (current month: ${new Date().toLocaleString('default', { month: 'long' })}).
+            Return a JSON array of objects with keys: id (string), type (string: DISEASE|DRUG_DEMAND|PRICE_SPIKE), title, probability (number 0-100), description, impactLevel (HIGH|MEDIUM|LOW), targetDate.
+         `;
+
+        result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+
+        textResult = result?.response?.text?.();
+        const parsed = textResult ? safeParseJson(textResult) : [];
+        return new Response(JSON.stringify({ response: parsed }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       default: {
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,

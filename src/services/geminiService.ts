@@ -218,3 +218,17 @@ export const generateMarketReport = async (
   if (notImplemented) return 'Market analysis unavailable.';
   return typeof response === 'string' ? response : JSON.stringify(response);
 };
+
+export const generateMarketPredictions = async (): Promise<Prediction[]> => {
+  const { response, notImplemented, error } = await invokeGemini('generateMarketPredictions', {});
+  if (error || notImplemented) {
+    console.error('generateMarketPredictions failed or not implemented');
+    return [];
+  }
+  return (response as Prediction[]) || [];
+};
+
+export const runABCOptimization = async (facilityId: string) => {
+  const { error } = await supabase.rpc('recalculate_abc_item_level', { p_facility_id: facilityId });
+  if (error) throw error;
+};

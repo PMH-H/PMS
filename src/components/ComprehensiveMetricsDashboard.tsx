@@ -108,11 +108,62 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
   const trends = calculateTrends();
   const healthStatus = getHealthStatus();
 
+
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+
+  const aggregatedData = React.useMemo(() => {
+    if (viewMode === 'daily') return metrics.storeMetrics;
+
+    const grouped = metrics.storeMetrics.reduce((acc: any, curr) => {
+      const date = new Date(curr.date);
+      let key = '';
+      if (viewMode === 'weekly') {
+        const startOfWeek = new Date(date.setDate(date.getDate() - date.getDay()));
+        key = startOfWeek.toISOString().split('T')[0];
+      } else {
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+      }
+
+      if (!acc[key]) {
+        acc[key] = { ...curr, date: key, count: 1 };
+      } else {
+        acc[key].total_revenue_cents += curr.total_revenue_cents;
+        acc[key].total_orders += curr.total_orders;
+        acc[key].count += 1;
+        // Merge category breakdowns if needed, simplified here
+      }
+      return acc;
+    }, {});
+
+    return Object.values(grouped).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [metrics.storeMetrics, viewMode]);
+
+  const handleExport = () => {
+    const headers = ['Date', 'Revenue', 'Orders', 'Active Users'];
+    const rows = aggregatedData.map((m: any) => [
+      m.date,
+      (m.total_revenue_cents / 100).toFixed(2),
+      m.total_orders,
+      metrics.systemMetrics.find(s => s.date === m.date)?.active_users || 0
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row: any[]) => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `metrics_report_${viewMode}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <Activity className="w-8 h-8" />
             <div>
@@ -120,8 +171,8 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
               <p className="text-indigo-100">System-wide analytics and KPI tracking</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-indigo-100">System Health</p>
+          <div className="flex flex-col items-end gap-2">
+            <p className="text-indigo-100 text-sm">System Health</p>
             <p className={`text-2xl font-bold ${healthStatus === 'EXCELLENT' ? 'text-green-300' :
               healthStatus === 'GOOD' ? 'text-green-300' :
                 healthStatus === 'WARNING' ? 'text-yellow-300' :
@@ -132,26 +183,55 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Date Range */}
-        <div className="flex items-center gap-4 text-sm">
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-4 text-sm mt-4 pt-4 border-t border-indigo-500/30">
+          <div className="flex items-center gap-2 bg-black/20 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('daily')}
+              className={`px-3 py-1 rounded-md transition-all ${viewMode === 'daily' ? 'bg-white text-indigo-600 shadow' : 'text-indigo-100 hover:bg-white/10'}`}
+            >Daily</button>
+            <button
+              onClick={() => setViewMode('weekly')}
+              className={`px-3 py-1 rounded-md transition-all ${viewMode === 'weekly' ? 'bg-white text-indigo-600 shadow' : 'text-indigo-100 hover:bg-white/10'}`}
+            >Weekly</button>
+            <button
+              onClick={() => setViewMode('monthly')}
+              className={`px-3 py-1 rounded-md transition-all ${viewMode === 'monthly' ? 'bg-white text-indigo-600 shadow' : 'text-indigo-100 hover:bg-white/10'}`}
+            >Monthly</button>
+          </div>
+
+          <div className="h-6 w-px bg-indigo-400/50 hidden md:block"></div>
+
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             <input
               type="date"
               value={dateRange.from}
               onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-              className="px-2 py-1 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-gray-800 placeholder-gray-300"
+              className="px-2 py-1 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-indigo-200 outline-none focus:ring-1 focus:ring-white"
+            />
+            <span className="text-indigo-200">to</span>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+              className="px-2 py-1 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-indigo-200 outline-none focus:ring-1 focus:ring-white"
             />
           </div>
-          <span>to</span>
-          <input
-            type="date"
-            value={dateRange.to}
-            onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-            className="px-2 py-1 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-gray-800 placeholder-gray-300"
-          />
+
+          <div className="flex-grow"></div>
+
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-lg font-bold shadow hover:bg-indigo-50 transition-colors"
+          >
+            <TrendingUp className="w-4 h-4" /> Export CSV
+          </button>
         </div>
       </div>
+
+      {/* ... rest of the component using aggregatedData instead of metrics.storeMetrics for charts ... */}
+
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -221,15 +301,15 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue Trend */}
-            {metrics.storeMetrics.length > 0 && (
+            {aggregatedData.length > 0 && (
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <LineChart className="w-5 h-5 text-indigo-600" />
-                  Revenue Trend
+                  Revenue Trend ({viewMode})
                 </h3>
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={metrics.storeMetrics.slice().reverse()}>
+                    <RechartsLineChart data={aggregatedData.slice().reverse()}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
                         dataKey="date"
@@ -257,15 +337,15 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
             )}
 
             {/* Orders Trend */}
-            {metrics.storeMetrics.length > 0 && (
+            {aggregatedData.length > 0 && (
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-indigo-600" />
-                  Orders Trend
+                  Orders Trend ({viewMode})
                 </h3>
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={metrics.storeMetrics.slice().reverse()}>
+                    <BarChart data={aggregatedData.slice().reverse()}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
                         dataKey="date"
@@ -362,31 +442,31 @@ export const ComprehensiveMetricsDashboard: React.FC = () => {
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-              <h4 className="font-semibold text-green-900 mb-2">Best Performing Day</h4>
-              {metrics.storeMetrics.length > 0 && (
+              <h4 className="font-semibold text-green-900 mb-2">Best Performing {viewMode === 'daily' ? 'Day' : viewMode === 'weekly' ? 'Week' : 'Month'}</h4>
+              {aggregatedData.length > 0 && (
                 <>
                   <p className="text-lg text-green-700">
-                    {new Date(metrics.storeMetrics[0]?.date || '').toLocaleDateString()}
+                    {new Date(aggregatedData.sort((a: any, b: any) => b.total_revenue_cents - a.total_revenue_cents)[0]?.date || '').toLocaleDateString()}
                   </p>
                   <p className="text-sm text-green-600">
-                    ${(metrics.storeMetrics[0]?.total_revenue_cents / 100).toFixed(2)} in revenue
+                    ${(aggregatedData.sort((a: any, b: any) => b.total_revenue_cents - a.total_revenue_cents)[0]?.total_revenue_cents / 100).toFixed(2)} in revenue
                   </p>
                 </>
               )}
             </div>
 
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Avg Daily Revenue</h4>
-              {metrics.storeMetrics.length > 0 && (
+              <h4 className="font-semibold text-blue-900 mb-2">Avg {viewMode === 'daily' ? 'Daily' : viewMode === 'weekly' ? 'Weekly' : 'Monthly'} Revenue</h4>
+              {aggregatedData.length > 0 && (
                 <p className="text-lg text-blue-700">
-                  ${(metrics.storeMetrics.reduce((sum, m) => sum + m.total_revenue_cents, 0) / 100 / metrics.storeMetrics.length).toFixed(2)}
+                  ${(aggregatedData.reduce((sum: number, m: any) => sum + m.total_revenue_cents, 0) / 100 / aggregatedData.length).toFixed(2)}
                 </p>
               )}
             </div>
 
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
-              <h4 className="font-semibold text-purple-900 mb-2">Total Days Tracked</h4>
-              <p className="text-lg text-purple-700">{metrics.storeMetrics.length} days</p>
+              <h4 className="font-semibold text-purple-900 mb-2">Total {viewMode === 'daily' ? 'Days' : viewMode === 'weekly' ? 'Weeks' : 'Months'} Tracked</h4>
+              <p className="text-lg text-purple-700">{aggregatedData.length} {viewMode === 'daily' ? 'days' : viewMode === 'weekly' ? 'weeks' : 'months'}</p>
             </div>
           </div>
         </>

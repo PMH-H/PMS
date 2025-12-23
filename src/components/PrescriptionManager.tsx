@@ -4,6 +4,7 @@ import { Prescription, PrescriptionStatus, User, Medication } from '../types';
 import PatientAllergies from './PatientAllergies';
 import { useNotifications } from '../hooks/useNotifications';
 import { createAuditLog } from '../services/database';
+import { toast } from 'sonner';
 
 interface PrescriptionManagerProps {
     currentUser: User;
@@ -108,7 +109,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
 
     const handleReject = async (prescriptionId: string) => {
         if (!actionNotes.trim()) {
-            alert('Please provide a reason for rejection');
+            toast.error('Please provide a reason for rejection');
             return;
         }
 

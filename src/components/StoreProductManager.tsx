@@ -29,7 +29,9 @@ interface ProductFormData {
 const PRODUCT_CATEGORIES = [
   { value: 'OTC_MEDICINES', label: '💊 OTC Medicines' },
   { value: 'COSMETICS', label: '💄 Cosmetics' },
-  { value: 'SUPPLEMENTS', label: '🏃 Supplements' },
+  { value: 'AGROVET', label: '🌾 Agrovet' },
+  { value: 'MEDSURGE', label: '🩺 Meds & Surgical' },
+  { value: 'SUPPLEMENTS', label: '🥗 Supplements' },
   { value: 'PERSONAL_CARE', label: '🧴 Personal Care' },
   { value: 'WELLNESS', label: '🧘 Wellness' },
   { value: 'FIRST_AID', label: '🏥 First Aid Kits' }
@@ -107,6 +109,11 @@ export const StoreProductManager: React.FC = () => {
       return;
     }
 
+    if (!facility?.id) {
+      setError('No facility selected. Please ensure you are connected to a pharmacy.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -118,7 +125,7 @@ export const StoreProductManager: React.FC = () => {
         // Create new product
         await dbService.createStoreProduct({
           ...formData,
-          facility_id: facility!.id
+          facility_id: facility.id
         });
       }
 

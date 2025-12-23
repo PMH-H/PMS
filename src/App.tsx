@@ -1,6 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
+import { Toaster } from 'sonner';
 import Navbar from '@/components/Navbar';
 import ChatAssistant from '@/components/ChatAssistant';
 import Login from '@/components/Login';
@@ -8,7 +9,10 @@ import ProfileSetup from '@/components/ProfileSetup';
 import ProfileSettings from '@/pages/ProfileSettings';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { AppProvider } from '@/context/AppContext';
-// Lazy load dashboards to reduce initial bundle size
+import { LanguageProvider } from '@/context/LanguageContext';
+import { ShopProvider } from '@/context/ShopContext';
+
+
 const PatientDashboard = React.lazy(() => import('@/pages/PatientDashboard'));
 const PharmacistDashboard = React.lazy(() => import('@/pages/PharmacistDashboard'));
 const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
@@ -172,15 +176,51 @@ const App: React.FC = () => {
     const safeDrugs = Array.isArray(inventory) ? inventory : [];
     const safeBatches = Array.isArray(batches) ? batches : [];
 
-    const inventorySummary: InventoryItem[] = safeDrugs.map(drug => ({
-      id: drug.id, name: drug.name, unit: drug.unit, category: drug.category,
-      currentStock: safeBatches.filter(b => b.item_id === drug.id).reduce((sum, b) => sum + b.current_quantity, 0),
-      expirationDate: 'N/A', minLevel: 0, maxLevel: 0, leadTime: 0, costPerUnit: 0
-    }));
+    const inventorySummary: InventoryItem[] = safeDrugs.map(drug => {
+      // Get all batches for this drug
+      const drugBatches = safeBatches.filter(b => b.item_id === drug.id);
+      const currentStock = drugBatches.reduce((sum, b) => sum + (b.current_quantity || 0), 0);
+      // Get cost from latest batch (or average if needed)
+      const latestBatch = drugBatches.sort((a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )[0];
+      const costPerUnit = latestBatch?.cost_per_unit || 0;
+      // Get earliest expiry date from batches
+      const expiryDates = drugBatches.map(b => b.expiry_date).filter(Boolean);
+      const earliestExpiry = expiryDates.length > 0
+        ? expiryDates.sort()[0]
+        : 'N/A';
+
+      return {
+        id: drug.id,
+        name: drug.name,
+        unit: drug.unit,
+        category: drug.category,
+        currentStock,
+        expirationDate: earliestExpiry,
+        minLevel: (drug as any).min_level || 10,  // From items table
+        maxLevel: (drug as any).max_level || 100, // From items table
+        leadTime: (drug as any).lead_time || 7,   // From items table
+        costPerUnit,
+        abcCategory: drug.category || 'C'
+      };
+    });
+
+    // Create inventory with prices for customer shop
+    const inventoryWithPrices = safeDrugs.map(drug => {
+      const drugBatches = safeBatches.filter(b => b.item_id === drug.id);
+      const latestBatch = drugBatches.sort((a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )[0];
+      return {
+        ...drug,
+        price_cents: latestBatch?.cost_per_unit || drug.price_cents || 0
+      };
+    });
 
     switch (currentUser.role) {
       case UserRole.CUSTOMER:
-        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={inventory} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={[]} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
+        return <PatientDashboard {...commonProps} prescriptions={prescriptions} inventory={inventoryWithPrices} inventoryStock={batches} onAddPrescription={(p) => createPrescription(p as any)} logAIAction={() => { }} notifications={[]} onMarkNotificationAsRead={(id) => { }} userPrivacy={currentUser.privacySettings} onUpdatePrivacy={(s) => { }} onLogSearch={() => { }} />;
       case UserRole.PHARMACIST:
         return <PharmacistDashboard {...commonProps} inventory={inventorySummary} alerts={[]} sales={sales} prescriptions={prescriptions} onAddPrescription={(p) => createPrescription(p as any)} onProcessSale={(s) => processSale(currentUser.facility_id!, s as any)} onUpdateStatus={(id, s) => updatePrescriptionStatus(id, s)} onAddInventory={(item) => { }} onUpdateInventory={(id, updates) => { }} onDeleteInventory={(id) => { }} onReconcileInventory={(id, count) => { }} />;
       case UserRole.ADMIN:
@@ -201,52 +241,56 @@ const App: React.FC = () => {
 
   return (
     <AppProvider>
-      <NotificationProvider currentUser={currentUser}>
-        <div className="min-h-screen bg-slate-50 font-sans">
-          <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
-          <main className="pb-20">
-            <React.Suspense fallback={
-              <div className="flex items-center justify-center p-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-              </div>
-            }>
-              {renderDashboard()}
-            </React.Suspense>
-          </main>
-          {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
-          {/* Legacy NotificationSystem removed, replaced by Context. Consumers in dashboards should enable their own toast UI if needed, or we add a Global ToastContainer here */}
+      <ShopProvider>
+        <LanguageProvider>
+          <NotificationProvider currentUser={currentUser}>
+            <div className="min-h-screen bg-slate-50 font-sans">
+              <Toaster richColors position="top-center" closeButton />
+              <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
+              <main className="pb-20">
+                <React.Suspense fallback={
+                  <div className="flex items-center justify-center p-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                  </div>
+                }>
+                  {renderDashboard()}
+                </React.Suspense>
+              </main>
+              {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
 
-          {showProfileModal && (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
-              <div
-                className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
-                  <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
-                  <button
-                    onClick={() => setShowProfileModal(false)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              {showProfileModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>
+                  <div
+                    className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+                    onClick={e => e.stopPropagation()}
                   >
-                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                    <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                      <h2 className="text-lg font-bold text-gray-900">Profile Settings</h2>
+                      <button
+                        onClick={() => setShowProfileModal(false)}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <ProfileSettings
+                        currentUser={currentUser}
+                        onUpdate={(updatedUser) => {
+                          setCurrentUser(updatedUser);
+                          setShowProfileModal(false);
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <ProfileSettings
-                    currentUser={currentUser}
-                    onUpdate={(updatedUser) => {
-                      setCurrentUser(updatedUser);
-                      setShowProfileModal(false);
-                    }}
-                  />
-                </div>
-              </div>
+              )}
             </div>
-          )}
-        </div>
-      </NotificationProvider>
+          </NotificationProvider>
+        </LanguageProvider>
+      </ShopProvider>
     </AppProvider>
   );
 };

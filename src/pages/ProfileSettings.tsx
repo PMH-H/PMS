@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
 import { User, getRoleDisplayName } from '../types';
+import { toast } from 'sonner';
 
 interface ProfileSettingsProps {
   currentUser: User;
@@ -19,20 +20,20 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      alert("Password updated successfully");
+      toast.success("Password updated successfully!");
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error("Error updating password:", error);
-      alert("Failed to update password: " + error.message);
+      toast.error("Failed to update password: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile');
+      toast.error('Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, onUpdate
   // --- Notifications ---
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const { success: notifySuccess, error: notifyError } = { success: (msg: string) => alert(msg), error: (msg: string) => alert(msg) }; // Simple replacement for hook if not available, or use useNotifications if imported
+  const { success: notifySuccess, error: notifyError } = { success: (msg: string) => toast.success(msg), error: (msg: string) => toast.error(msg) };
 
   React.useEffect(() => {
     // Check initial status

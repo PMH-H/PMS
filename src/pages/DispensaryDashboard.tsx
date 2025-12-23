@@ -5,6 +5,7 @@ import ProfileSettings from './ProfileSettings';
 import NewsFeed from '../components/NewsFeed';
 import { extractDrugDetails, analyzePrescriptionImage } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
+import { toast } from 'sonner';
 
 interface DispensaryDashboardProps {
     currentUser: User;
@@ -200,9 +201,9 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
             setIsAnalyzing(false);
             setShowRxModal(false);
             if (matchedCount > 0) {
-                alert(`Added ${matchedCount} detected items to cart.`);
+                toast.success(`Added ${matchedCount} detected items to cart!`);
             } else {
-                alert("Could not automatically match items. Please search manually.");
+                toast.info("Could not automatically match items. Please search manually.");
             }
         };
     };
@@ -263,7 +264,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
 
     const handleAIAutoFill = async (imageSrc: string | undefined, formType: 'DRUG' | 'BATCH') => {
         if (!imageSrc) {
-            alert("Please upload an image first.");
+            toast.error("Please upload an image first.");
             return;
         }
 
@@ -409,7 +410,7 @@ const DispensaryDashboard: React.FC<DispensaryDashboardProps> = ({
         onReconcile(adjs);
         setShowReconcilePreview(false);
         setReconcileCounts({});
-        alert(`Successfully processed ${adjs.length} adjustments.`);
+        toast.success(`Successfully processed ${adjs.length} adjustments!`);
     };
 
     // --- REPORTS ---

@@ -1,61 +1,94 @@
 import { supabase } from './supabase';
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+export type NotificationChannel = 'PUSH' | 'EMAIL' | 'SMS';
 
-// Base64 helper for VAPID key
-function urlBase64ToUint8Array(base64String: string) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
+interface SendNotificationParams {
+    userId: string;
+    title: string;
+    message: string;
+    type: 'ORDER_UPDATE' | 'HEALTH_ALERT' | 'NEWS' | 'CHANNEL_MESSAGE' | 'PROMOTION' | 'PRESCRIPTION_READY';
+    channels?: NotificationChannel[];
+    metadata?: any;
 }
 
-export const subscribeToPushNotifications = async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        throw new Error('Push messaging is not supported');
+/**
+ * Centralized service for sending notifications across multiple channels.
+ * Checks user preferences before sending.
+ */
+export const sendNotification = async ({
+    userId,
+    title,
+    message,
+    type,
+    channels = ['PUSH'], // Default to Push/In-App only
+    metadata = {}
+}: SendNotificationParams) => {
+    try {
+        // 1. Fetch User Preferences to respect opt-outs
+        const { data: prefs } = await supabase
+            .from('notification_preferences')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        // Default to true if no prefs found
+        const emailEnabled = prefs?.email_notifications ?? true;
+        const smsEnabled = prefs?.sms_notifications ?? true;
+
+        // TODO: specific type checks (e.g. if prefs.news is false, don't send NEWS)
+
+        // 2. Insert into In-App Notifications (Always unless critical system error)
+        if (channels.includes('PUSH')) {
+            const { error } = await supabase.from('notifications').insert({
+                user_id: userId,
+                title,
+                message,
+                type,
+                is_read: false,
+                metadata
+            });
+            if (error) console.error('Failed to save in-app notification', error);
+        }
+
+        // 3. Handle External Channels (Email/SMS) via Edge Function
+        const externalChannels = [];
+        if (channels.includes('EMAIL') && emailEnabled) externalChannels.push('EMAIL');
+        if (channels.includes('SMS') && smsEnabled) externalChannels.push('SMS');
+
+        if (externalChannels.length > 0) {
+            // Call Edge Function to handle third-party APIs (Resend, Twilio)
+            // This prevents exposing API keys on the client
+            const { error: edgeError } = await supabase.functions.invoke('send-notification-external', {
+                body: {
+                    userId,
+                    title,
+                    message,
+                    channels: externalChannels,
+                    metadata
+                }
+            });
+            if (edgeError) {
+                console.warn('Failed to invoke external notification function', edgeError);
+                // Fallback or retry logic here
+            }
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendNotification:', err);
+        return { success: false, error: err };
     }
-
-    // 1. Request Permission
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-        throw new Error('Notification permission denied');
-    }
-
-    // 2. Get Service Worker Registration
-    const registration = await navigator.serviceWorker.ready;
-
-    // 3. Subscribe
-    const subscribeOptions = {
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-    };
-
-    const subscription = await registration.pushManager.subscribe(subscribeOptions);
-
-    // 4. Save to Database
-    const { error } = await supabase.rpc('upsert_push_subscription', {
-        p_subscription: subscription.toJSON(), // Important: toJSON()
-        p_user_agent: navigator.userAgent
-    });
-
-    if (error) throw error;
-
-    return subscription;
 };
 
-export const unsubscribeFromPushNotifications = async () => {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-        await subscription.unsubscribe();
-        // Ideally remove from DB too, but not strictly required if we handle 410 Gone on sends
-    }
+/**
+ * Schedule a future notification (e.g. for medication reminders)
+ */
+export const scheduleNotification = async (
+    params: SendNotificationParams & { scheduledAt: Date }
+) => {
+    // Determine the user's preferred timezone offset or handle UTC
+    // Logic to insert into a 'scheduled_notifications' table or Cron job
+    console.log('Scheduling notification for', params.scheduledAt);
+    // Placeholder implementation
+    return { success: true, id: 'mock-schedule-id' };
 };

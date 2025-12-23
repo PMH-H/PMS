@@ -81,6 +81,7 @@ export interface Prescription {
   medications: Medication[];
   interactions?: InteractionAlert[];
   notes?: string;
+  manual_entry?: string;
   approved_by?: string;
   approved_at?: string;
   created_at: string;
@@ -398,7 +399,7 @@ export interface AdminMetricsSummary {
   active_24h: number;
   active_7d: number;
   // Prescription counts
-  prescriptions_24h: number;
+  total_prescriptions: number;
   pending_prescriptions: number;
   approved_prescriptions: number;
   // Auth events
@@ -409,6 +410,27 @@ export interface AdminMetricsSummary {
   critical_security_events: number;
   // Facilities
   total_facilities: number;
+}
+
+export interface InventoryValuationReport {
+  total_cost_value: number;
+  total_retail_value: number;
+  item_count: number;
+  batch_count: number;
+}
+
+export interface ExpiryRiskReport {
+  batch_number: string;
+  drug_name: string;
+  expiry_date: string;
+  quantity: number;
+  days_until_expiry: number;
+}
+
+export interface PeriodSalesReport {
+  sale_date: string;
+  total_revenue: number;
+  transaction_count: number;
 }
 
 // =============================================
@@ -997,9 +1019,21 @@ export interface ChannelMetrics {
   channel_id: string;
   date: string;
   new_members: number;
+  sales_trend: number; // percentage change
   messages_sent: number;
   engagement_rate: number;
   active_users: number;
+}
+
+export interface NetworkInventoryItem {
+  item_id: string;
+  item_name: string;
+  total_quantity: number;
+  facility_breakdown: {
+    facility_id: string;
+    facility_name: string;
+    quantity: number;
+  }[];
 }
 
 export interface HealthNewsMetrics {

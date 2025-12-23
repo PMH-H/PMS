@@ -32,11 +32,32 @@ chec
   *   **Point-of-Sale:** Basic functionality for processing sales and updating prescriptions.
   *   **Inventory Management:** Viewing inventory and stock levels.
 
-  ### To-Do
 
-  *   **Comprehensive Business Intelligence:** Enhance dashboards with more detailed analytics and visualizations.
-  *   **AI-Driven Prescription Analysis:** Fully integrate AI to analyze prescriptions for potential issues.
-  *   **User Feedback System:** Implement a system for users to provide feedback.
-  *   **Complete Auditing:** Ensure all critical actions are logged.
-  *   **Enhanced Inventory Management:** Add features for reconciliation and procurement suggestions.
+  ### Completed Phases
+  *   **Phase 1-3:** Core Dashboards, User Management, Inventory.
+  *   **Phase 4 (Store):** Digital commerce, Cart, Checkout, Dispatch.
+  *   **Phase 5 (Prescriber):** Prescriber Dashboard, Patient Search, e-Prescribing with Formulary checks.
+  *   **Phase 6 (Network):** Multi-tenant Inventory, Hierarchy, Stock Transfers.
+  *   **Phase 7 (Analytics):** Super Admin BI, AI Forecasting (Gemini), Market Reports.
+  *   **Phase 10 (Security):** System hardening, RLS Audit, Schema Zoning.
+
+  ## Directory Structure
+
+  ```
+  .
+  ├── src/                # Frontend Source Code (React/Vite)
+  ├── supabase/           # Backend Logic
+  │   ├── functions/      # Edge Functions (Deno/TS)
+  │   ├── migrations/     # Database Migrations (SQL)
+  │   └── scripts/        # Utility SQL Scripts (Audit, Debug, QA)
+  ├── docs/               # Project Documentation
+  │   └── references/     # External References (PDFs, Excel data)
+  └── ...
+  ```
+
+  ## Documentation
+  Detailed documentation can be found in the `docs/` folder.
+  *   [Developer Reference](docs/DEVELOPER_REFERENCE.md)
+  *   [Backend Architecture](docs/backend.md)
+  *   [Integration Guide](docs/INTEGRATION_GUIDE.md)
 

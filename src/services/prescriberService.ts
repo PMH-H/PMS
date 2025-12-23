@@ -40,7 +40,7 @@ export const prescriberService = {
       .select('*')
       .eq('patient_id', patientId);
     if (medsError) throw new Error(medsError.message);
-    
+
     const active_medications = medications?.filter(m => m.status === 'ACTIVE') || [];
     const inactive_medications = medications?.filter(m => m.status !== 'ACTIVE') || [];
 
@@ -50,7 +50,7 @@ export const prescriberService = {
       .select('*, pharmacy:pharmacies(*)')
       .eq('patient_id', patientId);
     if (pharmaciesError) throw new Error(pharmaciesError.message);
-    
+
     const { data: recent_prescriptions, error: prescriptionsError } = await supabase
       .from('prescription_drafts')
       .select('*')
@@ -99,7 +99,7 @@ export const prescriberService = {
     if (error) throw new Error(error.message);
     return data;
   },
-  
+
   async savePrescriptionDraft(draft: Omit<PrescriptionDraft, 'id' | 'created_at' | 'updated_at'>): Promise<PrescriptionDraft> {
     const { data, error } = await supabase
       .from('prescription_drafts')
@@ -109,16 +109,16 @@ export const prescriberService = {
     if (error) throw new Error(error.message);
     return data;
   },
-  
+
   async updatePrescriptionDraft(draftId: string, updates: Partial<PrescriptionDraft>): Promise<PrescriptionDraft> {
-      const { data, error } = await supabase
-        .from('prescription_drafts')
-        .update(updates)
-        .eq('id', draftId)
-        .select()
-        .single();
-      if (error) throw new Error(error.message);
-      return data;
+    const { data, error } = await supabase
+      .from('prescription_drafts')
+      .update(updates)
+      .eq('id', draftId)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   async approvePrescription(draftId: string, pin?: string) {
@@ -137,32 +137,32 @@ export const prescriberService = {
     if (error) throw new Error(error.message);
     return true;
   },
-  
+
   async reorderPrescription(medicationId: string): Promise<PrescriptionDraft> {
     const { data: medication, error: medError } = await supabase
       .from('patient_medications')
       .select('*')
       .eq('id', medicationId)
       .single();
-    
+
     if (medError) throw new Error(medError.message);
     if (!medication) throw new Error('Medication not found');
 
     const draft: Omit<PrescriptionDraft, 'id' | 'created_at' | 'updated_at'> = {
-        patient_id: medication.patient_id,
-        prescriber_id: supabase.auth.user()!.id,
-        drug_name: medication.drug_name,
-        strength: medication.dosage,
-        dosage_form: '', // This might need to be looked up
-        directions: '', // To be filled by prescriber
-        dispense_quantity: 0,
-        dispense_unit: '',
-        refills: 0,
-        days_supply: 0,
-        effective_date: new Date().toISOString().split('T')[0],
-        no_substitution: false,
-        status: 'DRAFT',
-        is_controlled: false, // This would need to be determined
+      patient_id: medication.patient_id,
+      prescriber_id: supabase.auth.user()!.id,
+      drug_name: medication.drug_name,
+      strength: medication.dosage,
+      dosage_form: '', // This might need to be looked up
+      directions: '', // To be filled by prescriber
+      dispense_quantity: 0,
+      dispense_unit: '',
+      refills: 0,
+      days_supply: 0,
+      effective_date: new Date().toISOString().split('T')[0],
+      no_substitution: false,
+      status: 'DRAFT',
+      is_controlled: false, // This would need to be determined
     };
 
     return this.savePrescriptionDraft(draft);
@@ -187,14 +187,14 @@ export const prescriberService = {
     if (error) throw new Error(error.message);
     return data;
   },
-  
+
   async deleteFavorite(favoriteId: string): Promise<boolean> {
-      const { error } = await supabase
-          .from('prescriber_favorites')
-          .delete()
-          .eq('id', favoriteId);
-      if (error) throw new Error(error.message);
-      return true;
+    const { error } = await supabase
+      .from('prescriber_favorites')
+      .delete()
+      .eq('id', favoriteId);
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   // Pharmacy Management
@@ -209,18 +209,50 @@ export const prescriberService = {
   },
 
   async changePharmacy(prescriptionId: string, pharmacyId: string) {
-      // This would likely involve creating an RxChangeRequest
-      console.log(`Requesting pharmacy change for ${prescriptionId} to ${pharmacyId}`);
-      // For now, we'll just update the draft directly if it's not yet sent
-      const { data, error } = await supabase
-          .from('prescription_drafts')
-          .update({ pharmacy_id: pharmacyId })
-          .eq('id', prescriptionId)
-          .in('status', ['DRAFT', 'PENDING_APPROVAL'])
-          .select()
-          .single();
-      
-      if(error) throw new Error(error.message);
-      return data;
+    // This would likely involve creating an RxChangeRequest
+    console.log(`Requesting pharmacy change for ${prescriptionId} to ${pharmacyId}`);
+    // For now, we'll just update the draft directly if it's not yet sent
+    const { data, error } = await supabase
+      .from('prescription_drafts')
+      .update({ pharmacy_id: pharmacyId })
+      .eq('id', prescriptionId)
+      .in('status', ['DRAFT', 'PENDING_APPROVAL'])
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  // Dashboard Lists
+  async getPendingPrescriptions(prescriberId: string): Promise<PrescriptionDraft[]> {
+    const { data, error } = await supabase
+      .from('prescription_drafts')
+      .select('*')
+      .eq('prescriber_id', prescriberId)
+      .in('status', ['DRAFT', 'PENDING_APPROVAL'])
+      .order('updated_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  async getPrescriberActiveMedications(prescriberId: string): Promise<any[]> {
+    // Fetch active prescriptions written by this prescriber
+    // querying clinical.prescriptions view (if exposed) or table
+    // Assuming 'prescriptions' table exists in public or clinical schema
+    const { data, error } = await supabase
+      .from('prescriptions') // This should map to clinical.prescriptions via view or search_path
+      .select('*, patient:profiles(full_name)')
+      .eq('prescriber_id', prescriberId)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Fallback if table not found or error, return empty
+      console.warn("Could not fetch active prescriptions:", error);
+      return [];
+    }
+    return data || [];
   },
 };

@@ -69,13 +69,13 @@ export const getPrescriptions = async (userId?: string, facilityId?: string) => 
         // In future: Filter by 'dispensary_id' or checking if patient belongs to facility.
         query = supabase
             .from('prescriptions')
-            .select('*');
+            .select('*, patient:profiles!prescriptions_patient_id_fkey(full_name)');
     } else {
         // Standard query, optionally filtered by patient_id
         query = supabase
             .from('prescriptions')
             // Optimize: select specific fields if possible, but for now stick to * for compat
-            .select('*');
+            .select('*, patient:profiles!prescriptions_patient_id_fkey(full_name)');
         if (userId) {
             query = query.eq('patient_id', userId);
         }
@@ -844,4 +844,32 @@ export const getSystemMetrics = async (facilityId: string, dateRange?: { from: s
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
+};
+
+// REPORTS & ANALYTICS
+// =====================================================
+
+export const getInventoryValuation = async (facilityId: string) => {
+    const { data, error } = await supabase.rpc('get_inventory_valuation', { p_facility_id: facilityId });
+    if (error) throw error;
+    return data as any[]; // Row[]: total_cost_value, total_retail_value, item_count, batch_count
+};
+
+export const getExpiryRiskReport = async (facilityId: string, daysCallback: number = 90) => {
+    const { data, error } = await supabase.rpc('get_expiry_risk_report', {
+        p_facility_id: facilityId,
+        p_days: daysCallback
+    });
+    if (error) throw error;
+    return data as any[];
+};
+
+export const getPeriodSalesReport = async (facilityId: string, startDate: string, endDate: string) => {
+    const { data, error } = await supabase.rpc('get_period_sales_report', {
+        p_facility_id: facilityId,
+        p_start_date: startDate,
+        p_end_date: endDate
+    });
+    if (error) throw error;
+    return data as any[];
 };

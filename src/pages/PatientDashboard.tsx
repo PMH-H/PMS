@@ -14,6 +14,10 @@ import ProductCatalog from '../components/ProductCatalog';
 import { NotificationManager } from '../components/NotificationManager';
 import { HealthNewsWidget } from '../components/HealthNewsWidget';
 import { UserChannelsWidget } from '../components/UserChannelsWidget';
+import FamilyManager from '../components/FamilyManager';
+import CaregiverAlertsWidget from '../components/CaregiverAlertsWidget';
+import AdherenceTracker from '../components/AdherenceTracker';
+import SymptomCheckIn from '../components/SymptomCheckIn';
 import { useNotifications } from '../hooks/useNotifications';
 import { Medication, Prescription, PrescriptionStatus, Notification, Drug, DrugBatch, PrivacySettings, User, UserRole } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
@@ -91,7 +95,7 @@ const SymptomChecker: React.FC<{ onLogSearch: (term: string, type: 'SYMPTOM') =>
 
 const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     // --- STATE ---
-    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'HEALTH' | 'CHANNELS'>('HOME');
+    const [activeTab, setActiveTab] = useState<'HOME' | 'SHOP' | 'ASSISTANT' | 'PROFILE' | 'NEWS' | 'MESSAGES' | 'ORDERS' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'HEALTH' | 'CHANNELS' | 'FAMILY'>('HOME');
     const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
     const [loadingSettings, setLoadingSettings] = useState(true);
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
@@ -114,7 +118,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                     setDashboardSettings(data.settings as DashboardSettings);
                 } else {
                     const defaultSettings: DashboardSettings = {
-                        widgets: [{ id: 'w1', component: 'Header', gridSpan: 2 }, { id: 'w2', component: 'Notifications', gridSpan: 2 }, { id: 'w3', component: 'Prescriptions', gridSpan: 2 }, { id: 'w4', component: 'UploadRx', gridSpan: 1 }, { id: 'w5', component: 'SymptomChecker', gridSpan: 1 },]
+                        widgets: [{ id: 'w1', component: 'Header', gridSpan: 2 }, { id: 'w2', component: 'Tracker', gridSpan: 2 }, { id: 'w3', component: 'Notifications', gridSpan: 2 }, { id: 'w4', component: 'Prescriptions', gridSpan: 2 }, { id: 'w5', component: 'UploadRx', gridSpan: 1 }, { id: 'w6', component: 'SymptomCheckIn', gridSpan: 1 }]
                     };
                     if (!error) {
                         const { error: insertError } = await supabase.from('dashboard_settings').insert({ user_id: props.currentUser.id, settings: defaultSettings });
@@ -127,7 +131,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
             } catch (err) {
                 console.error("Unexpected error fetching settings:", err);
                 const defaultSettings: DashboardSettings = {
-                    widgets: [{ id: 'w1', component: 'Header', gridSpan: 2 }, { id: 'w2', component: 'Notifications', gridSpan: 2 }, { id: 'w3', component: 'Prescriptions', gridSpan: 2 }, { id: 'w4', component: 'UploadRx', gridSpan: 1 }, { id: 'w5', component: 'SymptomChecker', gridSpan: 1 },]
+                    widgets: [{ id: 'w1', component: 'Header', gridSpan: 2 }, { id: 'w2', component: 'Tracker', gridSpan: 2 }, { id: 'w3', component: 'Notifications', gridSpan: 2 }, { id: 'w4', component: 'Prescriptions', gridSpan: 2 }, { id: 'w5', component: 'UploadRx', gridSpan: 1 }, { id: 'w6', component: 'SymptomCheckIn', gridSpan: 1 }]
                 };
                 setDashboardSettings(defaultSettings);
             } finally {
@@ -171,6 +175,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
 
 
     // --- WIDGETS ---
+
+    // ... (imports)
+
+    // ... inside PatientDashboard component ...
+
     const widgetComponents: { [key: string]: React.ReactNode } = {
         Header: (
             <div className="flex justify-between items-center">
@@ -233,14 +242,22 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 />
             </div>
         ),
-        SymptomChecker: (
-            <SymptomChecker onLogSearch={props.onLogSearch} />
+        Tracker: (
+            <div className="bg-white p-4 rounded-xl shadow-sm border col-span-2 md:col-span-1">
+                <AdherenceTracker currentUser={props.currentUser} />
+            </div>
+        ),
+        SymptomCheckIn: (
+            <div className="col-span-2 md:col-span-1">
+                <SymptomCheckIn currentUser={props.currentUser} />
+            </div>
         )
     };
 
     // --- TAB RENDERERS ---
     const renderHome = () => (
         <div className="animate-in fade-in duration-500 space-y-6">
+            <CaregiverAlertsWidget currentUser={props.currentUser} />
             {loadingSettings ?
                 <div className='text-center p-10'><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div></div> :
                 <div className="grid grid-cols-2 gap-4">
@@ -297,6 +314,12 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM18.5 20H20a2 2 0 002-2v-2a2 2 0 00-2-2h-2M4 20h5v-2a3 3 0 00-5.856-1.487M5 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     </div>
                     <span className="font-bold text-slate-700">Community</span>
+                </button>
+                <button onClick={() => setActiveTab('FAMILY')} className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    </div>
+                    <span className="font-bold text-slate-700">Family & Care</span>
                 </button>
             </div>
         </div>
@@ -377,6 +400,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                     <div className="animate-in fade-in duration-500">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Community Channels</h2>
                         <UserChannelsWidget />
+                    </div>
+                )}
+                {activeTab === 'FAMILY' && (
+                    <div className="animate-in fade-in duration-500">
+                        <FamilyManager currentUser={props.currentUser} />
                     </div>
                 )}
                 {activeTab === 'PROFILE' && renderProfile()}

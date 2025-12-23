@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole, User } from '../types';
+import { useShop } from '../context/ShopContext';
+import { ShoppingCart } from 'lucide-react';
+import { CartDrawer } from './CartDrawer';
 
 interface NavbarProps {
   currentUser: User;
@@ -8,6 +11,8 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { itemCount } = useShop();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -77,6 +82,19 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => 
               </div>
             </div>
           </div>
+
+          {/* Cart Button */}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="p-2 mr-2 sm:mr-4 rounded-full hover:bg-indigo-600 transition-colors relative focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          >
+            <ShoppingCart size={22} />
+            {itemCount > 0 && (
+              <span className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
+                {itemCount}
+              </span>
+            )}
+          </button>
 
           {/* Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -176,6 +194,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => 
           </div>
         </div>
       </div>
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} currentUser={currentUser} />
     </nav>
   );
 };

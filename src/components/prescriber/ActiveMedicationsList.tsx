@@ -16,10 +16,8 @@ const ActiveMedicationsList: React.FC<ActiveMedicationsListProps> = ({ prescribe
     const fetchMedications = async () => {
       setIsLoading(true);
       try {
-        // This is a mock function. In a real scenario, you would fetch this data based on the prescriber.
-        // const data = await prescriberService.getMedicationsByStatus(prescriberId, 'ACTIVE');
-        // setMedications(data);
-        setMedications([]); // Replace with actual data fetching
+        const data = await prescriberService.getPrescriberActiveMedications(prescriberId);
+        setMedications(data);
       } catch (err) {
         setError('Failed to load active medications.');
         console.error(err);
@@ -30,22 +28,47 @@ const ActiveMedicationsList: React.FC<ActiveMedicationsListProps> = ({ prescribe
     fetchMedications();
   }, [prescriberId]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (isLoading) return <div className="p-4 text-gray-500">Loading active medications...</div>;
+  if (error) return <div className="p-4 text-red-500 bg-red-50 rounded-lg">{error}</div>;
 
   return (
-    <div className="p-4 bg-white shadow rounded-lg">
-      <h2 className="font-bold text-xl mb-4">Active Medications</h2>
+    <div className="bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+      <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+        <h2 className="font-bold text-lg text-slate-800">Active Prescriptions</h2>
+        <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">{medications.length} Active</span>
+      </div>
+
       {medications.length === 0 ? (
-        <p>No active medications.</p>
+        <div className="p-8 text-center text-gray-500">
+          <p>No active prescriptions written by you.</p>
+        </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-gray-100">
           {medications.map(med => (
-            <li key={med.id} className="p-3 border rounded-md bg-gray-50">
-              <p className="font-semibold">{med.drug_name} {med.dosage}</p>
-              <p className="text-sm text-gray-600">Patient: {med.patient_id}</p> 
-              <p className="text-sm text-gray-600">Status: {med.status}</p>
-              {/* Add buttons for actions like Discontinue, Refill */}
+            <li key={med.id} className="p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-semibold text-slate-800">{med.drug_name} {med.dosage}</h3>
+                  <p className="text-sm font-medium text-indigo-600 mt-1">
+                    Patient: {med.patient_name || med.patient_id}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Refills Remaining: {med.refills_remaining}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="px-2 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">
+                    ACTIVE
+                  </span>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Exp: {med.expiration_date ? new Date(med.expiration_date).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2 justify-end border-t border-slate-100 pt-3">
+                <button className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1">Discontinue</button>
+                <button className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1">Renew</button>
+              </div>
             </li>
           ))}
         </ul>

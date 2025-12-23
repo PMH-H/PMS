@@ -1,75 +1,75 @@
 import React, { useState } from 'react';
-import { supabase } from '../../services/supabase';
-import { User, Drug } from '../../types';
+import PatientSearchPanel from './PatientSearchPanel';
+import PrescribingWorkflow from './PrescribingWorkflow';
+import { prescriberService } from '../../services/prescriberService';
+import { User, PrescriptionDraft } from '../../types';
 
 interface PrescriptionCreationProps {
   prescriberId: string;
 }
 
 const PrescriptionCreation: React.FC<PrescriptionCreationProps> = ({ prescriberId }) => {
-  const [patientQuery, setPatientQuery] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<any>(null);
-  const [drugs, setDrugs] = useState<Drug[]>([]);
-  const [selectedDrug, setSelectedDrug] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [instructions, setInstructions] = useState('');
-  const [selectedPharmacy, setSelectedPharmacy] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const searchPatient = async () => {
-    // Search by NRC or phone
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(`nrc.ilike.%${patientQuery}%,phone.ilike.%${patientQuery}%`)
-      .eq('role', 'customer')
-      .single();
-
-    if (data) setSelectedPatient(data);
+  const handlePatientSelect = async (patientId: string) => {
+    setLoading(true);
+    try {
+      // We need the User object for the workflow
+      const context = await prescriberService.getPatientContext(patientId);
+      setSelectedPatient(context.patient);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load patient details. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const addDrug = () => {
-    // Add drug to prescription
-    // For now, mock
+  const handlePrescriptionSave = (draft: PrescriptionDraft) => {
+    // Could add a toast notification here
+    alert(`Prescription for ${draft.drug_name} saved successfully!`);
+    setSelectedPatient(null); // Return to search to prescribe for next patient
   };
 
-  const createPrescription = async () => {
-    // Create prescription in DB
-  };
+  if (selectedPatient) {
+    return (
+      <div className="animate-in fade-in duration-300">
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={() => setSelectedPatient(null)}
+            className="text-sm font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1"
+          >
+            &larr; Switch Patient
+          </button>
+          <span className="text-slate-300">|</span>
+          <span className="font-bold text-slate-800">{selectedPatient.full_name}</span>
+        </div>
+
+        <PrescribingWorkflow
+          patient={selectedPatient}
+          prescriberId={prescriberId}
+          onPrescriptionSave={handlePrescriptionSave}
+          onCancel={() => setSelectedPatient(null)}
+        />
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        <div className="spinner-border animate-spin inline-block w-6 h-6 border-2 rounded-full border-t-transparent border-emerald-500 mb-2"></div>
+        <p>Loading patient context...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold">Create Prescription</h2>
-
-      {/* Patient Search */}
-      <div>
-        <label>Patient NRC or Phone</label>
-        <input
-          type="text"
-          value={patientQuery}
-          onChange={(e) => setPatientQuery(e.target.value)}
-          className="border p-2 w-full"
-        />
-        <button onClick={searchPatient} className="bg-blue-500 text-white p-2 mt-2">Search</button>
-        {selectedPatient && <div>Selected: {selectedPatient.full_name}</div>}
-      </div>
-
-      {/* Add Drugs */}
-      <div>
-        <h3>Add Drugs</h3>
-        {/* Drug selection and quantity */}
-      </div>
-
-      {/* Pharmacy Selection */}
-      <div>
-        <label>Select Pharmacy</label>
-        <select value={selectedPharmacy} onChange={(e) => setSelectedPharmacy(e.target.value)}>
-          <option value="">Choose Pharmacy</option>
-          {/* List pharmacies */}
-        </select>
-      </div>
-
-      <button onClick={createPrescription} className="bg-green-500 text-white p-2">Create Prescription</button>
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+      <h2 className="text-xl font-bold text-slate-800 mb-2">New Prescription</h2>
+      <p className="text-slate-500 mb-6 text-sm">Search for a patient securely to begin the prescribing workflow.</p>
+      <PatientSearchPanel onPatientSelect={handlePatientSelect} prescriberId={prescriberId} />
     </div>
   );
 };

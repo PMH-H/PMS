@@ -4,7 +4,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend, ComposedChart, Area
 } from 'recharts';
-import { generateMarketReport } from '../services/geminiService';
+import { generateMarketReport, generateMarketPredictions } from '../services/geminiService';
 import { getAllFacilities, getRegionalAggregates, getCategoryTrends, FacilityMetrics } from '../services/bmsService';
 import BusinessMetricsPanel from '../components/BusinessMetricsPanel';
 import UserAdminTable from '../components/UserAdminTable';
@@ -12,27 +12,32 @@ import AuditLogViewer from '../components/AuditLogViewer';
 import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
 import ComprehensiveMetricsDashboard from '../components/ComprehensiveMetricsDashboard';
 import SignupApprovalPanel from '../components/admin/SignupApprovalPanel';
+import SignupApprovalPanel from '../components/admin/SignupApprovalPanel';
 import PharmacyRegistrationForm from '../components/PharmacyRegistrationForm';
+import { NetworkInventoryManager } from '../components/NetworkInventoryManager';
+import { getPlatformSettings, updatePlatformSetting, PlatformSetting } from '../services/configService';
 
 interface SuperAdminDashboardProps {
     currentUser?: User;
     metrics?: AdminMetricsSummary | null;
 }
 
-// --- MOCK DATA FOR PREDICTIONS (AI-generated, not facility-specific) ---
-const MOCK_PREDICTIONS: Prediction[] = [
+
+// Mock fallback if AI fails or is slow to load
+const FALLBACK_PREDICTIONS: Prediction[] = [
     { id: 'pr1', type: 'DISEASE', title: 'Cholera Outbreak Risk', probability: 78, description: 'Increased rainfall in Lusaka compounds suggests high risk of waterborne diseases.', impactLevel: 'HIGH', targetDate: 'Nov 2023' },
     { id: 'pr2', type: 'DRUG_DEMAND', title: 'Antihistamine Shortage', probability: 65, description: 'Pollen season starting early in Southern province will spike demand by 40%.', impactLevel: 'MEDIUM', targetDate: 'Sep 2023' },
     { id: 'pr3', type: 'PRICE_SPIKE', title: 'Insulin Cost Increase', probability: 90, description: 'Global supply chain disruption predicted to raise import costs by 15%.', impactLevel: 'HIGH', targetDate: 'Dec 2023' },
 ];
 
-type TabKey = 'OVERVIEW' | 'PLATFORM' | 'OPERATIONS' | 'MARKET' | 'FORECAST' | 'FACILITIES' | 'USERS' | 'METRICS' | 'COMPLIANCE' | 'SETTINGS';
+type TabKey = 'OVERVIEW' | 'PLATFORM' | 'OPERATIONS' | 'MARKET' | 'FORECAST' | 'FACILITIES' | 'NETWORK' | 'USERS' | 'METRICS' | 'COMPLIANCE' | 'SETTINGS';
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, metrics }) => {
     const [activeTab, setActiveTab] = useState<TabKey>('OVERVIEW');
     const [aiSummary, setAiSummary] = useState<string>('Loading executive summary...');
     const [facilities, setFacilities] = useState<FacilityMetrics[]>([]);
     const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
+    const [predictions, setPredictions] = useState<Prediction[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddFacilityOpen, setIsAddFacilityOpen] = useState(false);
     const [signupEnabled, setSignupEnabled] = useState(() => {
@@ -42,6 +47,29 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
             return false;
         }
     });
+    const [platformSettings, setPlatformSettings] = useState<PlatformSetting[]>([]);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const data = await getPlatformSettings();
+                setPlatformSettings(data);
+            } catch (e) {
+                console.error("Failed to fetch settings", e);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleToggleSetting = async (key: string, currentValue: boolean) => {
+        try {
+            const newValue = !currentValue;
+            await updatePlatformSetting(key, newValue);
+            setPlatformSettings(prev => prev.map(s => s.key === key ? { ...s, value: newValue } : s));
+        } catch (e) {
+            console.error("Failed to update setting", e);
+        }
+    };
 
     const tabs: { key: TabKey; label: string; icon: string }[] = [
         { key: 'OVERVIEW', label: 'Overview', icon: '📊' },
@@ -50,6 +78,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
         { key: 'MARKET', label: 'Market', icon: '📈' },
         { key: 'FORECAST', label: 'Forecast', icon: '🔮' },
         { key: 'FACILITIES', label: 'Facilities', icon: '🏥' },
+        { key: 'NETWORK', label: 'Network Stock', icon: '📦' },
         { key: 'USERS', label: 'Users', icon: '👥' },
         { key: 'METRICS', label: 'Analytics', icon: '📉' },
         { key: 'COMPLIANCE', label: 'Compliance', icon: '📋' },
@@ -80,7 +109,12 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
                 setMarketTrends(formattedTrends);
 
                 // Generate AI summary
-                const report = await generateMarketReport(formattedTrends, MOCK_PREDICTIONS);
+                // Generate AI predictions & summary
+                let preds = await generateMarketPredictions();
+                if (preds.length === 0) preds = FALLBACK_PREDICTIONS;
+                setPredictions(preds);
+
+                const report = await generateMarketReport(formattedTrends, preds);
                 setAiSummary(report);
 
             } catch (error) {
@@ -256,7 +290,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
     const renderForecast = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {MOCK_PREDICTIONS.map(pred => (
+                {predictions.map(pred => (
                     <div key={pred.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className={`h-2 w-full ${pred.impactLevel === 'HIGH' ? 'bg-red-500' : 'bg-yellow-500'}`} />
                         <div className="p-6">
@@ -402,6 +436,28 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
 
     const renderSettings = () => (
         <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Revenue Control (Premium Features) */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="font-bold text-slate-900 mb-6 text-lg">💰 Revenue & Premium Features</h3>
+                <div className="space-y-4">
+                    {platformSettings.map(setting => (
+                        <div key={setting.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div>
+                                <h4 className="font-semibold text-slate-900">{setting.label}</h4>
+                                <p className="text-sm text-gray-600 mt-1">{setting.description}</p>
+                            </div>
+                            <button
+                                onClick={() => handleToggleSetting(setting.key, setting.value)}
+                                className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors ${setting.value ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                            >
+                                <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${setting.value ? 'translate-x-7' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
+                    ))}
+                    {platformSettings.length === 0 && <p className="text-sm text-gray-500">Loading configuration...</p>}
+                </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <h3 className="font-bold text-slate-900 mb-6 text-lg">Authentication Settings</h3>
 
@@ -498,6 +554,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ currentUser, 
                 {activeTab === 'MARKET' && renderMarket()}
                 {activeTab === 'FORECAST' && renderForecast()}
                 {activeTab === 'FACILITIES' && renderFacilities()}
+                {activeTab === 'NETWORK' && currentUser && <NetworkInventoryManager currentUser={currentUser} />}
                 {activeTab === 'USERS' && renderUsers()}
                 {activeTab === 'METRICS' && <ComprehensiveMetricsDashboard />}
                 {activeTab === 'COMPLIANCE' && renderCompliance()}
