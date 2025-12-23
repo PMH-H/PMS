@@ -30,11 +30,11 @@ const PrescriberDashboard: React.FC<PrescriberDashboardProps> = ({ currentUser, 
         return (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow">
-              <PatientSearchPanel onPatientSelect={handlePatientSelect} />
+              <PatientSearchPanel onPatientSelect={handlePatientSelect} prescriberId={currentUser.id} />
             </div>
             <div className="lg:col-span-2">
               {selectedPatientId ? (
-                <PatientContextView patientId={selectedPatientId} />
+                <PatientContextView patientId={selectedPatientId} prescriberId={currentUser.id} />
               ) : (
                 <div className="flex items-center justify-center h-full bg-white p-4 rounded-lg shadow text-gray-500">
                   Select a patient to view their context.

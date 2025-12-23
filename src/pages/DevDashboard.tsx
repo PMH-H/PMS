@@ -10,7 +10,7 @@ import FeatureFlagManager from '../components/FeatureFlagManager';
 import SystemMonitor from '../components/SystemMonitor';
 import DevTools from '../components/DevTools';
 import AuditLogViewer from '../components/AuditLogViewer';
-import UserManagement from '../components/UserManagement';
+import CreateUserForm from '../components/CreateUserForm'; // Updated import
 import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
 
 interface DevDashboardProps {
@@ -245,7 +245,7 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser, 
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <div>
                                     <h3 className="text-lg font-bold">Create New User</h3>
-                                    <p className="text-sm text-indigo-100">Add a new super admin or staff member</p>
+                                    <p className="text-sm text-indigo-100">Add a new user with any role</p>
                                 </div>
                                 <button
                                     onClick={() => {
@@ -280,7 +280,7 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser, 
                                         </svg>
                                     </button>
                                 </div>
-                                <UserManagement />
+                                <CreateUserForm />
                             </div>
                         </div>
                     </div>

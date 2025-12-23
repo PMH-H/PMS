@@ -154,22 +154,21 @@ $$ LANGUAGE SQL SECURITY DEFINER;
 -- ENABLE RLS ON ALL TABLES
 -- =====================================================
 
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE facilities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE item_batches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cycle_counts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cycle_count_results ENABLE ROW LEVEL SECURITY;
-ALTER TABLE inventory_analytics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vendor_performance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
-ALTER TABLE search_logs ENABLE ROW LEVEL SECURITY;
+DO $$ DECLARE
+  tbl_name TEXT;
+BEGIN
+  FOR tbl_name IN 
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name IN (
+      'profiles', 'facilities', 'items', 'item_batches', 'stock_movements', 
+      'suppliers', 'purchase_orders', 'purchase_order_items', 'cycle_counts', 
+      'cycle_count_results', 'inventory_analytics', 'alerts', 'vendor_performance', 
+      'audit_log', 'feedback', 'search_logs'
+    )
+  LOOP
+    EXECUTE 'ALTER TABLE ' || quote_ident(tbl_name) || ' ENABLE ROW LEVEL SECURITY;';
+  END LOOP;
+END $$;
 
 -- =====================================================
 -- PROFILES POLICIES
@@ -591,12 +590,20 @@ CREATE POLICY "Super admins can view search logs"
 -- =====================================================
 
 -- Grant usage on sequences
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
+DO $$ BEGIN
+  GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+  GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
+EXCEPTION
+    WHEN others THEN null;
+END $$;
 
 -- Grant execute on functions
-GRANT EXECUTE ON FUNCTION get_user_role() TO authenticated;
-GRANT EXECUTE ON FUNCTION get_user_facility() TO authenticated;
-GRANT EXECUTE ON FUNCTION has_facility_access(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION is_admin_or_above() TO authenticated;
-GRANT EXECUTE ON FUNCTION is_staff() TO authenticated;
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION get_user_role() TO authenticated;
+  GRANT EXECUTE ON FUNCTION get_user_facility() TO authenticated;
+  GRANT EXECUTE ON FUNCTION has_facility_access(UUID) TO authenticated;
+  GRANT EXECUTE ON FUNCTION is_admin_or_above() TO authenticated;
+  GRANT EXECUTE ON FUNCTION is_staff() TO authenticated;
+EXCEPTION
+    WHEN others THEN null;
+END $$;
