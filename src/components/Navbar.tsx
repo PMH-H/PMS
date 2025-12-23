@@ -49,10 +49,23 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => 
   };
 
   const handleSignOut = async () => {
-    const { supabase } = await import('../services/supabase');
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error('Error signing out:', error);
-    window.location.reload();
+    try {
+      const { supabase } = await import('../services/supabase');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        alert('Error signing out. Please try again.');
+        return;
+      }
+      // Clear local storage and reload
+      localStorage.removeItem('pharmai_cart');
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Sign out error:', err);
+      // Force logout anyway
+      localStorage.clear();
+      window.location.href = '/';
+    }
   };
 
   const getInitials = (name: string) => {
