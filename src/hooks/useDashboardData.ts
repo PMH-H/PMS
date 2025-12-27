@@ -177,62 +177,69 @@ export const useDashboardData = (user: User | null) => {
 
                 case UserRole.SUPER_ADMIN_BMS:
                 case UserRole.SUPER_ADMIN_DEV: {
-                    total_pharmacists: pharmacists || 0,
-                        total_admins: 0,
-                            blocked_users: 0,
+                    const p1 = fetchWithCache('admin_metrics', async () => {
+                        const { data, error } = await supabase.rpc('get_platform_metrics_summary');
+                        if (error) {
+                            console.error('Admin metrics error:', error);
+                            // Return default metrics on error
+                            const { count: pharmacists } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'PHARMACIST');
+                            const { count: prescriptions } = await supabase.from('prescriptions').select('id', { count: 'exact', head: true });
+                            const { count: pending } = await supabase.from('prescriptions').select('id', { count: 'exact', head: true }).eq('status', 'PENDING');
+                            return {
+                                total_pharmacists: pharmacists || 0,
+                                total_admins: 0,
+                                blocked_users: 0,
                                 active_24h: 0,
-                                    active_7d: 0,
-                                        total_prescriptions: prescriptions || 0,
-                                            pending_prescriptions: pending || 0,
-                                                approved_prescriptions: 0,
-                                                    logins_24h: 0,
-                                                        failed_logins_24h: 0,
-                                                            unresolved_security_events: 0,
-                                                                critical_security_events: 0,
-                                                                    total_facilities: 0
-                } as AdminMetricsSummary;
+                                active_7d: 0,
+                                total_prescriptions: prescriptions || 0,
+                                pending_prescriptions: pending || 0,
+                                approved_prescriptions: 0,
+                                logins_24h: 0,
+                                failed_logins_24h: 0,
+                                unresolved_security_events: 0,
+                                critical_security_events: 0,
+                                total_facilities: 0
+                            } as AdminMetricsSummary;
+                        }
+                        return data as AdminMetricsSummary;
+                    }, 5 * 60 * 1000).then(data => {
+                        if (data) results.adminMetrics = data;
+                    });
+                    promises.push(p1);
+                    break;
+                }
             }
 
-            return data as AdminMetricsSummary;
-        }, 5 * 60 * 1000).then(data => {
-            if (data) results.adminMetrics = data;
-        });
+            await Promise.allSettled(promises);
 
-    promises.push(p1);
-    break;
-}
-            }
-
-await Promise.allSettled(promises);
-
-setData(prev => ({
-    ...prev,
-    ...results,
-    loading: false,
-    error: null
-}));
+            setData(prev => ({
+                ...prev,
+                ...results,
+                loading: false,
+                error: null
+            }));
 
         } catch (err: any) {
-    console.error("Dashboard data fetch error:", err);
-    setData(prev => ({ ...prev, loading: false, error: err.message }));
-}
-    }, [user]); // Removed data from dependency to avoid loop
+            console.error("Dashboard data fetch error:", err);
+            setData(prev => ({ ...prev, loading: false, error: err.message }));
+        }
+    }, [user]);
 
-// Initial Fetch
-useEffect(() => {
-    fetchData();
-}, [fetchData]);
+    // Initial Fetch
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
-// Setup Polling (every 30 seconds) to ensure lists stay relatively fresh without Realtime
-// Using a Ref or simpler dependency to avoid effect re-triggering
-useEffect(() => {
-    if (!user) return;
-    const intervalId = setInterval(() => {
-        fetchData(true);
-    }, 30000);
+    // Setup Polling (every 30 seconds)
+    useEffect(() => {
+        if (!user) return;
+        const intervalId = setInterval(() => {
+            fetchData(true);
+        }, 30000);
 
-    return () => clearInterval(intervalId);
-}, [user?.id, fetchData]); // Only restart if user ID changes or fetchData reference changes
+        return () => clearInterval(intervalId);
+    }, [user?.id, fetchData]);
 
-return { ...data, refresh: async () => fetchData(true) };
+    return { ...data, refresh: async () => fetchData(true) };
 };
+
