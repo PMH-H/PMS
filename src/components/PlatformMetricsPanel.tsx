@@ -9,7 +9,7 @@ import {
     PharmacistMetrics,
     AdminMetrics
 } from '../services/userHierarchyService';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from './RechartsWrapper';
 
 interface PlatformMetricsPanelProps {
     currentUser?: User;
@@ -120,8 +120,8 @@ const PlatformMetricsPanel: React.FC<PlatformMetricsPanelProps> = ({ currentUser
                         key={tab.key}
                         onClick={() => setDrilldownView(tab.key as any)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors whitespace-nowrap ${drilldownView === tab.key
-                                ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         <span>{tab.icon}</span>
@@ -237,8 +237,8 @@ const PlatformMetricsPanel: React.FC<PlatformMetricsPanelProps> = ({ currentUser
                                 key={item.role}
                                 onClick={() => setSelectedRole(selectedRole === item.role ? null : item.role)}
                                 className={`p-4 rounded-xl border transition-all ${selectedRole === item.role
-                                        ? `bg-${item.color}-100 border-${item.color}-300`
-                                        : 'bg-white border-gray-200 hover:border-gray-300'
+                                    ? `bg-${item.color}-100 border-${item.color}-300`
+                                    : 'bg-white border-gray-200 hover:border-gray-300'
                                     }`}
                             >
                                 <p className="text-2xl font-bold text-gray-900">{item.count || 0}</p>

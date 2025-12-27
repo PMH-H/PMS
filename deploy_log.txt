@@ -1,0 +1,58 @@
+﻿supabase : open 
+supabase\.temp\profile: The 
+system cannot find the file 
+specified.
+At line:1 char:1
++ supabase functions deploy 
+gemini-proxy --debug 2>&1 | 
+Out-File -FileP ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (open   
+  supabase\....file speci   
+ fied.:String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+Using access token for 
+profile: supabase
+Loading project ref from 
+file: 
+supabase\.temp\project-ref
+Supabase CLI 2.65.2
+Using profile: supabase 
+(supabase.co)
+WARNING: Functions using 
+fallback import map: 
+gemini-proxy
+Please use recommended per 
+function dependency 
+declaration  https://supabas
+e.com/docs/guides/functions/
+import-maps
+WARNING: Docker is not 
+running
+Using access token for 
+profile: supabase
+2025/12/24 16:46:51 HTTP 
+POST: https://api.supabase.c
+om/v1/projects/paocmldsoetjv
+lclblid/functions/deploy?slu
+g=gemini-proxy
+Uploading asset 
+(gemini-proxy): supabase/fun
+ctions/import_map.json
+Uploading asset 
+(gemini-proxy): supabase/fun
+ctions/gemini-proxy/index.ts
+unexpected deploy status 
+403: {"message":"Your 
+account does not have the 
+necessary privileges to 
+access this endpoint. For 
+more details, refer to our 
+documentation https://supaba
+se.com/docs/guides/platform/
+access-control"}

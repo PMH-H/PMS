@@ -1,170 +1,153 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
-import { UserRole, Notification as AppNotification } from '../types';
-import { RealtimeChannel } from '@supabase/supabase-js';
-
-// Define a unified specific notification type for state management
-export interface SystemNotification extends AppNotification {
-    isRead: boolean; // Map to 'read' in AppNotification but enforcing boolean
-    link?: string; // Optional action link
-    severity: 'low' | 'medium' | 'high';
-}
+import { Notification } from '../types';
+import { generateUUID } from '../utils/uuid';
+import { useAppContext } from './AppContext';
 
 interface NotificationContextType {
-    notifications: SystemNotification[];
+    notifications: Notification[];
     unreadCount: number;
-    addNotification: (notification: Omit<SystemNotification, 'id' | 'timestamp' | 'read' | 'isRead'>) => void;
-    markAsRead: (id: string) => void;
-    clearAll: () => void;
+    showToast: (message: string, type?: Notification['type']) => void;
+    markAsRead: (id: string) => Promise<void>;
+    markAllAsRead: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-export const useNotifications = () => {
+export const useNotificationSystem = () => {
     const context = useContext(NotificationContext);
     if (!context) {
-        throw new Error('useNotifications must be used within a NotificationProvider');
+        throw new Error('useNotificationSystem must be used within a NotificationProvider');
     }
     return context;
 };
 
-interface NotificationProviderProps {
-    children: React.ReactNode;
-    currentUser: { id: string; role: UserRole; facility_id?: string } | null;
-}
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const { currentUser: user } = useAppContext(); // Access current user
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children, currentUser }) => {
-    const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-    const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+    // Derived state for unread count
+    const unreadCount = notifications.filter(n => !n.read).length;
 
-    // Play sound helper
-    const playNotificationSound = useCallback((severity: 'low' | 'medium' | 'high' = 'medium') => {
-        // Only play sound for medium/high
-        if (severity === 'low') return;
-
-        // Simple beep data URI (same as previous system but cleaner impl)
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE');
-        audio.volume = severity === 'high' ? 1.0 : 0.5;
-        audio.play().catch(e => console.error('Audio play failed', e)); // User interaction required policy might block
+    // Initialize audio on mount
+    useEffect(() => {
+        audioRef.current = new Audio('/sounds/notification.mp3'); // Ensure this file exists or fail silently
+        audioRef.current.volume = 0.5;
     }, []);
 
-    const addNotification = useCallback((data: Omit<SystemNotification, 'id' | 'timestamp' | 'read' | 'isRead'>) => {
-        const newNotification: SystemNotification = {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
+    const playSound = useCallback(() => {
+        if (audioRef.current) {
+            audioRef.current.play().catch(() => {
+                // Ignore auto-play errors
+            });
+        }
+    }, []);
+
+    const showToast = useCallback((message: string, type: Notification['type'] = 'GENERAL') => {
+        const newNotif: Notification = {
+            id: generateUUID(),
+            message,
+            type,
             read: false,
-            isRead: false,
-            ...data,
+            timestamp: new Date().toISOString()
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        playSound();
+
+        // Auto-dismiss local toasts after 5s if they are just general info
+        if (type === 'GENERAL') {
+            setTimeout(() => {
+                setNotifications(prev => prev.filter(n => n.id !== newNotif.id));
+            }, 5000);
+        }
+    }, [playSound]);
+
+    // Initial Fetch & Realtime Subscription
+    useEffect(() => {
+        if (!user) {
+            setNotifications([]);
+            return;
+        }
+
+        // 1. Initial Fetch (Limit to last 20 to save egress)
+        const fetchInitial = async () => {
+            const { data } = await supabase
+                .from('user_notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (data) {
+                // Map DB structure to frontend type if needed, or assume match
+                const mapped: Notification[] = data.map((n: any) => ({
+                    id: n.id,
+                    message: n.message,
+                    read: n.is_read,
+                    timestamp: n.created_at,
+                    type: n.type
+                }));
+                setNotifications(mapped);
+            }
         };
 
-        setNotifications(prev => [newNotification, ...prev]);
-        playNotificationSound(data.severity);
-    }, [playNotificationSound]);
+        fetchInitial();
 
-    const markAsRead = useCallback((id: string) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true, isRead: true } : n));
-    }, []);
+        // 2. Realtime Subscription (INSERT only)
+        const channel = supabase
+            .channel(`notifs:${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'user_notifications',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload) => {
+                    const newRecord = payload.new as any;
+                    const newNotif: Notification = {
+                        id: newRecord.id,
+                        message: newRecord.message,
+                        read: newRecord.is_read,
+                        timestamp: newRecord.created_at,
+                        type: newRecord.type
+                    };
 
-    const clearAll = useCallback(() => {
-        setNotifications([]);
-    }, []);
-
-    // Set up Realtime subscriptions based on Role
-    useEffect(() => {
-        if (!currentUser) return;
-
-        // Clean up previous channel
-        if (channel) {
-            supabase.removeChannel(channel);
-        }
-
-        const newChannel = supabase.channel('system_notifications');
-
-        // 1. Role-Specific Logic
-        switch (currentUser.role) {
-            case UserRole.CUSTOMER:
-                // Listen for prescription updates
-                newChannel.on(
-                    'postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table: 'prescriptions', filter: `patient_id=eq.${currentUser.id}` },
-                    (payload) => {
-                        const status = payload.new.status;
-                        if (payload.old.status !== status) {
-                            let message = `Your prescription status is now ${status}`;
-                            let type: any = 'GENERAL';
-                            if (status === 'APPROVED') type = 'PRESCRIPTION_STATUS';
-
-                            addNotification({
-                                message,
-                                type,
-                                title: 'Prescription Update',
-                                severity: 'medium'
-                            });
-                        }
-                    }
-                );
-                break;
-
-            case UserRole.PHARMACIST:
-            case UserRole.ADMIN: // Facility Admin
-                if (currentUser.facility_id) {
-                    // Listen for new prescriptions in this facility (if assigned)
-                    // Note: This requires complex filter, usually better to listen to all and filter in client or use Edge Function pushes.
-                    // For MVP, we listen to sales/orders in this facility
-                    newChannel.on(
-                        'postgres_changes',
-                        { event: 'INSERT', schema: 'public', table: 'sales', filter: `facility_id=eq.${currentUser.facility_id}` },
-                        () => {
-                            addNotification({
-                                title: 'New Sale',
-                                message: 'A new sale has been recorded.',
-                                type: 'STOCK_UPDATE',
-                                severity: 'low'
-                            });
-                        }
-                    );
-
-                    // Stock alerts? (Usually derived, detecting row changes in batches is noisy)
+                    setNotifications(prev => [newNotif, ...prev]);
+                    playSound();
                 }
-                break;
-
-            case UserRole.SUPER_ADMIN_BMS:
-            case UserRole.SUPER_ADMIN_DEV:
-                // Listen for Security Events
-                newChannel.on(
-                    'postgres_changes',
-                    { event: 'INSERT', schema: 'public', table: 'security_events' },
-                    (payload) => {
-                        // High alert for admins
-                        addNotification({
-                            title: 'Security Alert',
-                            message: `New security event: ${payload.new.event_type}`,
-                            type: 'GENERAL',
-                            severity: 'high'
-                        });
-                    }
-                );
-                // Listen for Auth fails? (Maybe too noisy, stick to critical)
-                break;
-
-            case UserRole.PRESCRIBER:
-                // Listen for Rx status changes of their patients? 
-                // Or refils
-                break;
-        }
-
-        newChannel.subscribe();
-        setChannel(newChannel);
+            )
+            .subscribe();
 
         return () => {
-            supabase.removeChannel(newChannel);
+            supabase.removeChannel(channel);
         };
-    }, [currentUser?.id, currentUser?.role, currentUser?.facility_id, addNotification]);
+    }, [user, playSound]);
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const markAsRead = async (id: string) => {
+        // Optimistic update
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+
+        // Background sync
+        await supabase
+            .from('user_notifications')
+            .update({ is_read: true, read_at: new Date().toISOString() })
+            .eq('id', id);
+    };
+
+    const markAllAsRead = async () => {
+        // Optimistic update
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+        if (user) {
+            await supabase.rpc('mark_notifications_read', { p_user_id: user.id });
+        }
+    };
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, addNotification, markAsRead, clearAll }}>
+        <NotificationContext.Provider value={{ notifications, unreadCount, showToast, markAsRead, markAllAsRead }}>
             {children}
         </NotificationContext.Provider>
     );

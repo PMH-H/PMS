@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase, checkSupabaseConnection } from '../services/supabase';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from './RechartsWrapper';
 
 interface HealthCheck {
     id: string;
@@ -296,13 +296,13 @@ const SystemMonitor: React.FC = () => {
         <div className="space-y-6">
             {/* Overall Status Banner */}
             <div className={`p-4 rounded-xl flex items-center justify-between ${healthyCount === healthChecks.length ? 'bg-green-50 border border-green-200' :
-                    healthyCount > healthChecks.length / 2 ? 'bg-yellow-50 border border-yellow-200' :
-                        'bg-red-50 border border-red-200'
+                healthyCount > healthChecks.length / 2 ? 'bg-yellow-50 border border-yellow-200' :
+                    'bg-red-50 border border-red-200'
                 }`}>
                 <div className="flex items-center gap-3">
                     <span className={`w-3 h-3 rounded-full ${healthyCount === healthChecks.length ? 'bg-green-500 animate-pulse' :
-                            healthyCount > healthChecks.length / 2 ? 'bg-yellow-500' :
-                                'bg-red-500'
+                        healthyCount > healthChecks.length / 2 ? 'bg-yellow-500' :
+                            'bg-red-500'
                         }`}></span>
                     <div>
                         <p className="font-bold text-gray-900">{overallHealth}</p>
@@ -328,7 +328,7 @@ const SystemMonitor: React.FC = () => {
                         <div>
                             <p className="text-xs text-gray-500 uppercase">DB Status</p>
                             <p className={`text-lg font-bold ${dbStats.connectionStatus === 'connected' ? 'text-green-600' :
-                                    dbStats.connectionStatus === 'checking' ? 'text-gray-600' : 'text-red-600'
+                                dbStats.connectionStatus === 'checking' ? 'text-gray-600' : 'text-red-600'
                                 }`}>
                                 {dbStats.connectionStatus === 'connected' ? 'Connected' :
                                     dbStats.connectionStatus === 'checking' ? 'Checking...' : 'Disconnected'}
@@ -342,7 +342,7 @@ const SystemMonitor: React.FC = () => {
                         <div>
                             <p className="text-xs text-gray-500 uppercase">Response Time</p>
                             <p className={`text-lg font-bold ${dbStats.responseTime < 100 ? 'text-green-600' :
-                                    dbStats.responseTime < 500 ? 'text-yellow-600' : 'text-red-600'
+                                dbStats.responseTime < 500 ? 'text-yellow-600' : 'text-red-600'
                                 }`}>
                                 {dbStats.responseTime}ms
                             </p>
@@ -399,16 +399,16 @@ const SystemMonitor: React.FC = () => {
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${check.status === 'healthy' ? 'bg-green-100 text-green-800' :
-                                                check.status === 'degraded' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
+                                            check.status === 'degraded' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
                                             }`}>
                                             {check.status.toUpperCase()}
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-right">
                                         <span className={`font-mono ${check.latency_ms < 100 ? 'text-green-600' :
-                                                check.latency_ms < 500 ? 'text-yellow-600' :
-                                                    'text-red-600'
+                                            check.latency_ms < 500 ? 'text-yellow-600' :
+                                                'text-red-600'
                                             }`}>
                                             {check.latency_ms}ms
                                         </span>

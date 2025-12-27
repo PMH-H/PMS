@@ -1,28 +1,38 @@
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import ArticleViewer from '../components/ArticleViewer';
 import ProfileSettings from './ProfileSettings';
-import NewsFeed from '../components/NewsFeed';
-import ChatAssistant from '../components/ChatAssistant';
-import PrescriptionUpload from '../components/PrescriptionUpload';
-import PrescriptionDetailView from '../components/PrescriptionDetailView';
-import NewsWidget from '../components/NewsWidget';
-import Messaging from '../components/Messaging';
-import NotificationToast from '../components/NotificationToast';
-import OrderHistory from '../components/OrderHistory';
-import ProductCatalog from '../components/ProductCatalog';
-import { NotificationManager } from '../components/NotificationManager';
-import { HealthNewsWidget } from '../components/HealthNewsWidget';
-import { UserChannelsWidget } from '../components/UserChannelsWidget';
-import FamilyManager from '../components/FamilyManager';
-import CaregiverAlertsWidget from '../components/CaregiverAlertsWidget';
-import AdherenceTracker from '../components/AdherenceTracker';
-import SymptomCheckIn from '../components/SymptomCheckIn';
+// Lazy load heavy components
+const NewsFeed = React.lazy(() => import('../components/NewsFeed'));
+const ChatAssistant = React.lazy(() => import('../components/ChatAssistant'));
+const PrescriptionUpload = React.lazy(() => import('../components/PrescriptionUpload'));
+const PrescriptionDetailView = React.lazy(() => import('../components/PrescriptionDetailView'));
+const NewsWidget = React.lazy(() => import('../components/NewsWidget'));
+const Messaging = React.lazy(() => import('../components/Messaging'));
+const NotificationToast = React.lazy(() => import('../components/NotificationToast'));
+const OrderHistory = React.lazy(() => import('../components/OrderHistory'));
+const ProductCatalog = React.lazy(() => import('../components/ProductCatalog'));
+const NotificationManager = React.lazy(() => import('../components/NotificationManager').then(m => ({ default: m.NotificationManager })));
+const HealthNewsWidget = React.lazy(() => import('../components/HealthNewsWidget').then(m => ({ default: m.HealthNewsWidget })));
+const UserChannelsWidget = React.lazy(() => import('../components/UserChannelsWidget').then(m => ({ default: m.UserChannelsWidget })));
+const FamilyManager = React.lazy(() => import('../components/FamilyManager'));
+const CaregiverAlertsWidget = React.lazy(() => import('../components/CaregiverAlertsWidget'));
+const AdherenceTracker = React.lazy(() => import('../components/AdherenceTracker'));
+const SymptomCheckIn = React.lazy(() => import('../components/SymptomCheckIn'));
+
 import { useNotifications } from '../hooks/useNotifications';
 import { Medication, Prescription, PrescriptionStatus, Notification, Drug, DrugBatch, PrivacySettings, User, UserRole } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
 import { supabase } from '../services/supabase';
+
+// Skeleton for loading states
+const WidgetSkeleton = () => (
+    <div className="bg-white p-4 rounded-xl shadow-sm border h-full animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+        <div className="h-32 bg-gray-100 rounded"></div>
+    </div>
+);
 
 // --- TYPES ---
 interface DashboardWidget { id: string; component: string; gridSpan: number; }
@@ -101,13 +111,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
     const { toasts, removeToast, success, error, info } = useNotifications();
     const [localNotifications, setLocalNotifications] = useState<Notification[]>(props.notifications);
-
+    const [showCharts, setShowCharts] = useState(false); // Move state to top level
 
     // --- EFFECTS ---
     useEffect(() => {
         setLocalNotifications(props.notifications);
     }, [props.notifications])
 
+    // Effect 1: Fetch Settings
     useEffect(() => {
         const fetchSettings = async () => {
             setLoadingSettings(true);
@@ -139,18 +150,36 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
             }
         };
         fetchSettings();
+    }, [props.currentUser.id]);
 
-        const channel = supabase
-            .channel('prescription-updates')
-            .on(
-                'postgres_changes',
+
+    // Effect 2: Defer heavier UI elements
+    useEffect(() => {
+        if ('requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(() => setShowCharts(true));
+        } else {
+            setTimeout(() => setShowCharts(true), 2000);
+        }
+    }, []);
+
+    // Effect 3: Custom Realtime - Lazy Loaded
+    useEffect(() => {
+        let subscription: any = null;
+
+        const setupRealtime = async () => {
+            // Lazy load heavily realtime client
+            if (!showCharts) return; // Wait until UI is stable
+            const { subscribeToChanges, removeChannel } = await import('../services/supabaseHeavy');
+
+            subscription = subscribeToChanges(
+                'prescription-updates',
                 {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'prescriptions',
                     filter: `patient_id=eq.${props.currentUser.id}`,
                 },
-                (payload) => {
+                (payload: any) => {
                     const updated = payload.new as any;
                     const newNotification: Notification = { id: generateUUID(), message: '', read: false, timestamp: new Date().toISOString(), type: 'PRESCRIPTION_STATUS' };
                     if (updated.status === 'approved') {
@@ -163,22 +192,24 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                         newNotification.message = 'Your prescription has been dispensed and is ready for pickup.';
                         info('Your prescription has been dispensed and is ready for pickup.');
                     }
-                    setLocalNotifications([newNotification, ...localNotifications]);
+                    setLocalNotifications(prev => [newNotification, ...prev]);
                 }
-            )
-            .subscribe();
+            );
+        };
+
+        setupRealtime();
 
         return () => {
-            supabase.removeChannel(channel);
+            if (subscription) {
+                // Cleanup using the heavy client logic, dynamically imported if needed or just use core removeChannel if exposed
+                import('../services/supabaseHeavy').then(({ removeChannel }) => {
+                    removeChannel(subscription);
+                });
+            }
         };
-    }, [props.currentUser.id]);
-
+    }, [props.currentUser.id, showCharts]);
 
     // --- WIDGETS ---
-
-    // ... (imports)
-
-    // ... inside PatientDashboard component ...
 
     const widgetComponents: { [key: string]: React.ReactNode } = {
         Header: (
@@ -244,12 +275,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
         ),
         Tracker: (
             <div className="bg-white p-4 rounded-xl shadow-sm border col-span-2 md:col-span-1">
-                <AdherenceTracker currentUser={props.currentUser} />
+                <Suspense fallback={<WidgetSkeleton />}>
+                    {showCharts ? <AdherenceTracker currentUser={props.currentUser} /> : <WidgetSkeleton />}
+                </Suspense>
             </div>
         ),
         SymptomCheckIn: (
             <div className="col-span-2 md:col-span-1">
-                <SymptomCheckIn currentUser={props.currentUser} />
+                <Suspense fallback={<WidgetSkeleton />}>
+                    <SymptomCheckIn currentUser={props.currentUser} />
+                </Suspense>
             </div>
         )
     };
@@ -257,7 +292,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     // --- TAB RENDERERS ---
     const renderHome = () => (
         <div className="animate-in fade-in duration-500 space-y-6">
-            <CaregiverAlertsWidget currentUser={props.currentUser} />
+            <Suspense fallback={<WidgetSkeleton />}>
+                <CaregiverAlertsWidget currentUser={props.currentUser} />
+            </Suspense>
             {loadingSettings ?
                 <div className='text-center p-10'><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div></div> :
                 <div className="grid grid-cols-2 gap-4">
@@ -270,16 +307,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
             }
         </div>
     );
-    const renderShop = () => <ProductCatalog inventory={props.inventory} />;
-    const renderAssistant = () => <div className="h-[600px]"><ChatAssistant role={UserRole.CUSTOMER} embedded /></div>;
-    const renderNews = () => <NewsFeed />;
+    const renderShop = () => <Suspense fallback={<div className="p-10 text-center">Loading Shop...</div>}><ProductCatalog inventory={props.inventory} /></Suspense>;
+    const renderAssistant = () => <div className="h-[600px]"><Suspense fallback={<WidgetSkeleton />}><ChatAssistant role={UserRole.CUSTOMER} embedded /></Suspense></div>;
+    const renderNews = () => <Suspense fallback={<WidgetSkeleton />}><NewsFeed /></Suspense>;
 
     const renderMessages = () => (
         <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-            <Messaging currentUser={props.currentUser} facilityId={props.currentUser.facility_id} />
+            <Suspense fallback={<WidgetSkeleton />}>
+                <Messaging currentUser={props.currentUser} facilityId={props.currentUser.facility_id} />
+            </Suspense>
         </div>
     );
-    const renderProfile = () => <ProfileSettings currentUser={props.currentUser} onUpdate={props.onUpdateUser} />;
+    const renderProfile = () => <Suspense fallback={<WidgetSkeleton />}><ProfileSettings currentUser={props.currentUser} onUpdate={props.onUpdateUser} /></Suspense>;
 
     const renderMoreMenu = () => (
         <div className="animate-in fade-in duration-500 space-y-6">
@@ -387,24 +426,32 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                 {activeTab === 'NOTIFICATIONS' && (
                     <div className="animate-in fade-in duration-500">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Notifications</h2>
-                        <NotificationManager />
+                        <Suspense fallback={<WidgetSkeleton />}>
+                            <NotificationManager />
+                        </Suspense>
                     </div>
                 )}
                 {activeTab === 'HEALTH' && (
                     <div className="animate-in fade-in duration-500">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Health News & Resources</h2>
-                        <HealthNewsWidget />
+                        <Suspense fallback={<WidgetSkeleton />}>
+                            <HealthNewsWidget />
+                        </Suspense>
                     </div>
                 )}
                 {activeTab === 'CHANNELS' && (
                     <div className="animate-in fade-in duration-500">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Community Channels</h2>
-                        <UserChannelsWidget />
+                        <Suspense fallback={<WidgetSkeleton />}>
+                            <UserChannelsWidget />
+                        </Suspense>
                     </div>
                 )}
                 {activeTab === 'FAMILY' && (
                     <div className="animate-in fade-in duration-500">
-                        <FamilyManager currentUser={props.currentUser} />
+                        <Suspense fallback={<WidgetSkeleton />}>
+                            <FamilyManager currentUser={props.currentUser} />
+                        </Suspense>
                     </div>
                 )}
                 {activeTab === 'PROFILE' && renderProfile()}

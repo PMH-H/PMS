@@ -1,30 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseCore } from './supabaseCore';
 
-// Vite exposes env vars prefixed with VITE_
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("⚠️ Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local");
-    console.warn("Running in OFFLINE MODE - using mock data only");
-}
-
-// Create Supabase client
-export const supabase = createClient(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseAnonKey || 'placeholder',
-    {
-        auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-        },
-        realtime: {
-            params: {
-                eventsPerSecond: 10
-            }
-        }
-    }
-);
+// Re-export the core client as the default 'supabase' export for backward compatibility
+// This ensures existing code works but uses the lighter client
+export const supabase = supabaseCore;
 
 // Helper to check connection
 export const checkSupabaseConnection = async () => {

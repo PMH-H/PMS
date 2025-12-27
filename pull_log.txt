@@ -1,0 +1,50 @@
+﻿supabase : Connecting to 
+remote database...
+At line:1 char:1
++ supabase db pull 2>&1 | 
+Out-File -FilePath 
+pull_log.txt -Encoding utf 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (Conne  
+  cting to remote databas   
+ e...:String) [], Remote    
+Exception
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+The remote database's 
+migration history does not 
+match local files in 
+supabase\migrations 
+directory.
+
+Make sure your local git 
+repo is up-to-date. If the 
+error persists, try 
+repairing the migration 
+history table:
+supabase migration repair 
+--status reverted 085
+supabase migration repair 
+--status reverted 086
+supabase migration repair 
+--status applied 08501
+supabase migration repair 
+--status applied 085
+supabase migration repair 
+--status applied 086
+supabase migration repair 
+--status applied 087
+supabase migration repair 
+--status applied 090
+supabase migration repair 
+--status applied 091
+supabase migration repair 
+--status applied 092
+supabase migration repair 
+--status applied 093
+supabase migration repair 
+--status applied 094
+

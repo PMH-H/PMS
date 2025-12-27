@@ -1,6 +1,44 @@
 -- Migration 087: Reports RPCs and Security Access
 -- Objective: Provide aggregated data for reports and ensure Super Admin access to audits.
 
+-- PREREQUISITE: Create helper functions used by this migration
+-- check_user_role: Checks if a user has a specific role
+CREATE OR REPLACE FUNCTION public.check_user_role(p_user_id UUID, p_role TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 
+        FROM public.profiles 
+        WHERE id = p_user_id 
+        AND role::text = p_role
+    );
+END;
+$$;
+
+-- check_is_super_admin: Checks if user is a super admin (dev or bms)
+CREATE OR REPLACE FUNCTION public.check_is_super_admin(p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 
+        FROM public.profiles 
+        WHERE id = p_user_id 
+        AND role::text IN ('super_admin_dev', 'super_admin_bms')
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_user_role(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_is_super_admin(UUID) TO authenticated;
+
 -- 1. Inventory Valuation Report
 -- Returns total cost value and total retail value of current stock.
 CREATE OR REPLACE FUNCTION inventory.get_inventory_valuation(p_facility_id UUID)

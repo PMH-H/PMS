@@ -9,7 +9,7 @@ import {
   TrendingUp, Users, ShoppingCart, MessageSquare, Activity,
   BarChart3, LineChart, PieChart, AlertCircle, Calendar
 } from 'lucide-react';
-import { LineChart as RechartsLineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart as RechartsLineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from './RechartsWrapper';
 import * as dbService from '../services/database';
 import { useAppContext } from '../context/AppContext';
 

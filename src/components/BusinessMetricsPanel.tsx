@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from './RechartsWrapper';
 
 interface BusinessMetrics {
     // Prescription metrics
@@ -164,8 +164,8 @@ const BusinessMetricsPanel: React.FC<{ facilityId?: string }> = ({ facilityId })
                             key={range}
                             onClick={() => setTimeRange(range)}
                             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${timeRange === range
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
