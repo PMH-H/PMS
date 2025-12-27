@@ -51,19 +51,20 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => 
   const handleSignOut = async () => {
     try {
       const { supabase } = await import('../services/supabase');
+      // Attempt to sign out from Supabase (server-side)
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Error signing out:', error);
-        alert('Error signing out. Please try again.');
-        return;
+        // Ignore "Auth session missing!" error as it means we're already signed out
+        if (!error.message.includes('Auth session missing')) {
+          console.warn('Supabase signOut error:', error);
+        }
       }
-      // Clear local storage and reload
-      localStorage.removeItem('pharmai_cart');
-      window.location.href = '/';
     } catch (err) {
-      console.error('Sign out error:', err);
-      // Force logout anyway
-      localStorage.clear();
+      console.warn('Sign out exception:', err);
+    } finally {
+      // Always clear local state and redirect, regardless of server response
+      localStorage.removeItem('pharmai_cart');
+      localStorage.clear(); // Clear all other cache items
       window.location.href = '/';
     }
   };

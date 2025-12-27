@@ -40,4 +40,26 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('lucide-react') || id.includes('sonner')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('react') || id.includes('react-dom')) {
+              // return 'vendor-react'; // React is core, keeping it in main vendor often better or let Vite handle it
+            }
+          }
+        }
+      }
+    }
+  }
 })

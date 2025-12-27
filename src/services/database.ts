@@ -12,7 +12,11 @@ import type {
 // ITEMS (DRUGS)
 // =====================================================
 export const getItems = async (facilityId?: string) => {
-    const { data, error } = await supabase.from('items').select('*').order('name');
+    // Select only columns needed for the inventory list to reduce payload
+    const { data, error } = await supabase
+        .from('items')
+        .select('id, name, price_cents, quantity, unit, image_url, description, updated_at')
+        .order('name');
     if (error) throw error;
     return data || [];
 };
@@ -64,17 +68,14 @@ export const getPrescriptions = async (userId?: string, facilityId?: string) => 
     let query;
 
     if (facilityId) {
-        // Current Schema does not link Rx to Facility directly.
-        // Return all prescriptions so Pharmacist can view/claim them.
-        // In future: Filter by 'dispensary_id' or checking if patient belongs to facility.
+        // Optimizing selection for Facility view
         query = supabase
             .from('prescriptions')
             .select('*, patient:profiles!prescriptions_patient_id_fkey(full_name)');
     } else {
-        // Standard query, optionally filtered by patient_id
+        // Standard query, filtered by patient_id
         query = supabase
             .from('prescriptions')
-            // Optimize: select specific fields if possible, but for now stick to * for compat
             .select('*, patient:profiles!prescriptions_patient_id_fkey(full_name)');
         if (userId) {
             query = query.eq('patient_id', userId);
@@ -86,9 +87,14 @@ export const getPrescriptions = async (userId?: string, facilityId?: string) => 
     const { data, error } = await query;
     if (error) {
         console.error('Error fetching prescriptions:', error);
-        throw error; // Throw so cache doesn't store empty result
+        throw error;
     }
-    return data || [];
+
+    // Map items to medications and returning data
+    return (data || []).map(p => ({
+        ...p,
+        medications: p.items || [] // Ensure medications property exists for UI
+    }));
 };
 
 export const getSalesSummary = async (facilityId: string, limit: number = 50) => {

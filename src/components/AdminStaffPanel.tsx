@@ -11,7 +11,7 @@ import {
     AdminStaffMember,
     AdminMetrics
 } from '../services/userHierarchyService';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from './RechartsWrapper';
 
 interface AdminStaffPanelProps {
     currentUser?: User;

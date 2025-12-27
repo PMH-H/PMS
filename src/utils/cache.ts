@@ -52,27 +52,71 @@ export const fetchWithCache = async <T>(
             localStorage.setItem(cacheKey, JSON.stringify(item));
         } catch (e: any) {
             if (e.name === 'QuotaExceededError' || e.code === 22) {
-                // Clear all pharmai cache entries to make room
-                console.warn('[Cache] Storage full, clearing old entries...');
-                Object.keys(localStorage)
-                    .filter(k => k.startsWith(CACHE_PREFIX))
-                    .forEach(k => localStorage.removeItem(k));
+                console.warn('[Cache] Storage full, attempting LRU eviction...');
 
-                // Retry saving
+                // Get all cache keys and sort by timestamp (older first)
+                const cacheEntries = Object.keys(localStorage)
+                    .filter(k => k.startsWith(CACHE_PREFIX))
+                    .map(k => {
+                        try {
+                            const val = JSON.parse(localStorage.getItem(k) || '');
+                            return { key: k, timestamp: val.timestamp };
+                        } catch {
+                            return { key: k, timestamp: 0 };
+                        }
+                    })
+                    .sort((a, b) => a.timestamp - b.timestamp);
+
+                // Evict oldest 20% items
+                const evictionCount = Math.max(1, Math.floor(cacheEntries.length * 0.2));
+                for (let i = 0; i < evictionCount; i++) {
+                    localStorage.removeItem(cacheEntries[i].key);
+                }
+
+                // Retry one last time
                 try {
                     localStorage.setItem(cacheKey, JSON.stringify(item));
                 } catch (retryError) {
-                    console.warn("[Cache] Storage still full, data not cached.");
+                    console.warn("[Cache] Storage still full after eviction, skipping cache write.");
                 }
             } else {
-                throw e;
+                // Ignore other errors (e.g. security/privacy blocking)
+                console.debug(`[Cache] Error saving ${key}`, e);
             }
         }
     } catch (e) {
-        console.warn(`[Cache] Error saving ${key}`, e);
+        console.warn(`[Cache] Unexpected error saving ${key}`, e);
     }
 
     return data;
+};
+
+/**
+ * Synchronously retrieves cached data.
+ * Useful for initializing state with cached content to avoid loading spinners.
+ * @param key Cache key
+ * @param ignoreTTL If true, returns data even if expired (stale-while-revalidate pattern)
+ */
+export const getCacheSync = <T>(key: string, ignoreTTL = true): T | null => {
+    const cacheKey = `${CACHE_PREFIX}${key}`;
+    try {
+        const item = localStorage.getItem(cacheKey);
+        if (item) {
+            const parsed: CacheItem<T> = JSON.parse(item);
+
+            if (ignoreTTL) {
+                return parsed.data;
+            }
+
+            const now = Date.now();
+            if (now - parsed.timestamp < parsed.ttl) {
+                return parsed.data;
+            }
+        }
+    } catch {
+        return null;
+    }
+    return null;
 };
 
 export const clearCache = (prefix?: string) => {

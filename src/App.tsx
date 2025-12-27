@@ -11,6 +11,7 @@ import { NotificationProvider } from '@/context/NotificationContext';
 import { AppProvider } from '@/context/AppContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { ShopProvider } from '@/context/ShopContext';
+import { NotificationStack } from '@/components/NotificationStack';
 
 
 const PatientDashboard = React.lazy(() => import('@/pages/PatientDashboard'));
@@ -243,9 +244,10 @@ const App: React.FC = () => {
     <AppProvider>
       <ShopProvider>
         <LanguageProvider>
-          <NotificationProvider currentUser={currentUser}>
+          <NotificationProvider>
             <div className="min-h-screen bg-slate-50 font-sans">
               <Toaster richColors position="top-center" closeButton />
+              <NotificationStack />
               <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />
               <main className="pb-20">
                 <React.Suspense fallback={
@@ -257,6 +259,21 @@ const App: React.FC = () => {
                 </React.Suspense>
               </main>
               {currentUser && currentUser.role !== UserRole.CUSTOMER && <ChatAssistant role={currentUser.role} />}
+
+              {showProfileSetup && pendingUserData && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                  <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <ProfileSetup
+                      userId={pendingUserData.userId}
+                      email={pendingUserData.email}
+                      onComplete={() => {
+                        setShowProfileSetup(false);
+                        fetchUserProfile(pendingUserData.userId, pendingUserData.email);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {showProfileModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowProfileModal(false)}>

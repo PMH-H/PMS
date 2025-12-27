@@ -26,8 +26,8 @@ const corsHeaders = {
 };
 
 // Default model and requested model constants
-// We default to the user's requested model for generic queries if available
-const REQUESTED_MODEL = 'gemini-3-pro-preview';
+// gemini-1.5-flash is fast and supports vision (image analysis)
+const REQUESTED_MODEL = 'gemini-1.5-flash';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -146,16 +146,37 @@ serve(async (req) => {
             {
               role: 'user',
               parts: [
-                { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-                { text: 'Analyze this prescription image. Extract the medication name, dosage, and frequency. Return a JSON array.' },
+                { inlineData: { mimeType: 'image/jpeg', data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
+                {
+                  text: `You are a prescription OCR system. Analyze this prescription image carefully.
+Extract ALL medications visible in the image.
+
+Return ONLY a valid JSON array with this exact structure (no markdown, no explanation):
+[
+  {
+    "name": "medication name",
+    "dosage": "strength (e.g., 500mg)",
+    "frequency": "how often (e.g., twice daily)",
+    "quantity": "number of tablets/units if visible"
+  }
+]
+
+If no medications are visible or the image is unclear, return an empty array: []
+Be thorough - extract every medication you can identify.` },
               ],
             },
           ],
         });
 
         textResult = result?.response?.text?.();
-        const parsed = textResult ? safeParseJson(textResult) : null;
-        return new Response(JSON.stringify({ response: parsed }), {
+        // Clean up response - remove markdown code blocks if present
+        let cleanText = textResult?.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim() || '[]';
+        const parsed = safeParseJson(cleanText);
+
+        // Ensure we return an array
+        const medications = Array.isArray(parsed) ? parsed : (parsed?.medications || parsed?._raw ? [] : [parsed]);
+
+        return new Response(JSON.stringify({ response: medications }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { User } from '../types';
+import MapView from './MapView';
 
 interface CustomerOrder {
     id: string;
@@ -13,6 +14,13 @@ interface CustomerOrder {
     actual_delivery_date?: string;
     created_at: string;
     updated_at: string;
+    facility?: {
+        id: string;
+        name: string;
+        latitude?: number;
+        longitude?: number;
+        address?: string;
+    };
 }
 
 interface OrderHistoryProps {
@@ -22,6 +30,7 @@ interface OrderHistoryProps {
 const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [loading, setLoading] = useState(true);
+    const [trackingOrder, setTrackingOrder] = useState<CustomerOrder | null>(null);
 
     useEffect(() => {
         fetchOrders();
@@ -32,7 +41,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
         try {
             const { data, error } = await supabase
                 .from('customer_orders')
-                .select('*, prescriptions(medications, created_at), sales(total_price, items)')
+                .select('*, prescriptions(medications, created_at), sales(total_price, items), facility:facilities(id, name, latitude, longitude, address)')
                 .eq('patient_id', currentUser.id)
                 .order('created_at', { ascending: false });
 
@@ -51,10 +60,15 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
             preparing: '📦',
             ready: '✅',
             picked_up: '🚗',
+            in_transit: '🚴',
             delivered: '🎉',
             cancelled: '❌'
         };
         return icons[status as keyof typeof icons] || '📋';
+    };
+
+    const canTrack = (status: string) => {
+        return ['preparing', 'ready', 'picked_up', 'in_transit'].includes(status.toLowerCase());
     };
 
     if (loading) {
@@ -71,6 +85,70 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
                 <h2 className="text-2xl font-bold text-gray-900">My Order History</h2>
                 <p className="text-sm text-gray-500">Track your prescriptions and deliveries</p>
             </div>
+
+            {/* Tracking Modal */}
+            {trackingOrder && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in"
+                    onClick={() => setTrackingOrder(null)}
+                >
+                    <div
+                        className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-lg">Track Order #{trackingOrder.id.slice(0, 8)}</h3>
+                                <p className="text-indigo-200 text-sm">
+                                    Status: {trackingOrder.status.toUpperCase()}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setTrackingOrder(null)}
+                                className="p-2 hover:bg-indigo-500 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            {trackingOrder.facility?.latitude && trackingOrder.facility?.longitude ? (
+                                <MapView
+                                    mode="order-detail"
+                                    pharmacyLocation={{
+                                        lat: trackingOrder.facility.latitude,
+                                        lng: trackingOrder.facility.longitude,
+                                        name: trackingOrder.facility.name
+                                    }}
+                                    customerLocation={trackingOrder.delivery_address ? {
+                                        lat: -15.3875 + (Math.random() - 0.5) * 0.05, // Demo: random nearby location
+                                        lng: 28.3228 + (Math.random() - 0.5) * 0.05,
+                                        address: trackingOrder.delivery_address
+                                    } : undefined}
+                                />
+                            ) : (
+                                <div className="bg-gray-100 rounded-xl p-8 text-center">
+                                    <p className="text-gray-600">Location tracking not available for this order</p>
+                                </div>
+                            )}
+
+                            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <p className="text-gray-500 text-xs">Pharmacy</p>
+                                    <p className="font-medium">{trackingOrder.facility?.name || 'Not specified'}</p>
+                                </div>
+                                {trackingOrder.delivery_address && (
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <p className="text-gray-500 text-xs">Delivery To</p>
+                                        <p className="font-medium">{trackingOrder.delivery_address}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Timeline */}
             <div className="space-y-4">
@@ -104,9 +182,23 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
                                             })}
                                         </p>
                                     </div>
-                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
-                                        {order.status.toUpperCase()}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {canTrack(order.status) && (
+                                            <button
+                                                onClick={() => setTrackingOrder(order)}
+                                                className="px-3 py-1 bg-emerald-600 text-white text-xs font-medium rounded-full hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                Track
+                                            </button>
+                                        )}
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+                                            {order.status.toUpperCase()}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Order details */}
@@ -175,3 +267,4 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ currentUser }) => {
 };
 
 export default OrderHistory;
+

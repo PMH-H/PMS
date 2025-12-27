@@ -3,7 +3,7 @@ import { MarketTrend, Prediction, User, AdminMetricsSummary } from '../types';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend, ComposedChart, Area
-} from 'recharts';
+} from '../components/RechartsWrapper';
 import { generateMarketReport, generateMarketPredictions } from '../services/geminiService';
 import { getAllFacilities, getRegionalAggregates, getCategoryTrends, FacilityMetrics } from '../services/bmsService';
 import BusinessMetricsPanel from '../components/BusinessMetricsPanel';

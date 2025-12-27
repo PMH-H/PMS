@@ -1,0 +1,1641 @@
+﻿supabase : open 
+supabase\.temp\profile: The 
+system cannot find the file 
+specified.
+At line:1 char:1
++ supabase db push --debug 
+2>&1 | Out-File -FilePath 
+push_log.txt -Enco ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo          
+    : NotSpecified: (open   
+  supabase\....file speci   
+ fied.:String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+Loading project ref from 
+file: 
+supabase\.temp\project-ref
+Using connection pooler: pos
+tgresql://postgres.paocmldso
+etjvlclblid@aws-1-eu-central
+-1.pooler.supabase.com:5432/
+postgres
+Using database password 
+from env var...
+Supabase CLI 2.65.2
+Using profile: supabase 
+(supabase.co)
+Connecting to remote 
+database...
+2025/12/24 10:12:50 PG 
+Send: {"Type":"StartupMessag
+e","ProtocolVersion":196608,
+"Parameters":{"database":"po
+stgres","user":"postgres.pao
+cmldsoetjvlclblid"}}
+2025/12/24 10:12:50 PG 
+Recv: {"Type":"Authenticatio
+nSASL","AuthMechanisms":["SC
+RAM-SHA-256"]}
+2025/12/24 10:12:50 PG 
+Send: {"Type":"SASLInitialRe
+sponse","AuthMechanism":"SCR
+AM-SHA-256","Data":"n,,n=,r=
+zqoFwcdt76TvEOIHw4wWIyaL"}
+2025/12/24 10:12:50 PG 
+Recv: {"Type":"Authenticatio
+nSASLContinue","Data":"r=zqo
+Fwcdt76TvEOIHw4wWIyaLRUFFMjh
+GdEhqUnNZTHp1RzU1OTJZWEFqUWJ
+xSA==,s=71QxXZK36/ys5IWu4T0q
+fw==,i=4096"}
+2025/12/24 10:12:50 PG 
+Send: {"Type":"SASLResponse"
+,"Data":"c=biws,r=zqoFwcdt76
+TvEOIHw4wWIyaLRUFFMjhGdEhqUn
+NZTHp1RzU1OTJZWEFqUWJxSA==,p
+=YChBKsNfuDYl4pF8aNgqTH3jKIc
+F3WFGCbEgkMzKVRY="}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"Authenticatio
+nSASLFinal","Data":"v=MMw0NT
+Fj6flMFxt5gb+1EnL4uNt4EBf+LF
+G89/bXV9c="}
+2025/12/24 10:12:51 PG 
+Recv: 
+{"Type":"AuthenticationOK"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"DateStyle","Valu
+e":"ISO, MDY"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"IntervalStyle","
+Value":"postgres"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"TimeZone","Value
+":"UTC"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"application_name
+","Value":"Supavisor"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"client_encoding"
+,"Value":"UTF8"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"default_transact
+ion_read_only","Value":"off"
+}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"in_hot_standby",
+"Value":"off"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"integer_datetime
+s","Value":"on"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"is_superuser","V
+alue":"off"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"scram_iterations
+","Value":"4096"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"server_encoding"
+,"Value":"UTF8"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"server_version",
+"Value":"17.6"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"session_authoriz
+ation","Value":"postgres"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterStat
+us","Name":"standard_conform
+ing_strings","Value":"on"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"BackendKeyDat
+a","ProcessID":39439532,"Sec
+retKey":2141303154}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Parse","Name"
+:"lrupsc_1_0","Query":"SELEC
+T version FROM supabase_migr
+ations.schema_migrations 
+ORDER BY version","Parameter
+OIDs":null}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Describe","Ob
+jectType":"S","Name":"lrupsc
+_1_0"}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Sync"}
+2025/12/24 10:12:51 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ParameterDesc
+ription","ParameterOIDs":[]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"RowDescriptio
+n","Fields":[{"Name":"versio
+n","TableOID":19699,"TableAt
+tributeNumber":1,"DataTypeOI
+D":25,"DataTypeSize":-1,"Typ
+eModifier":-1,"Format":0}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"lrupsc_1_0","Parame
+terFormatCodes":null,"Parame
+ters":[],"ResultFormatCodes"
+:[0]}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:12:51 PG 
+Send: {"Type":"Sync"}
+2025/12/24 10:12:51 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"RowDescriptio
+n","Fields":[{"Name":"versio
+n","TableOID":19699,"TableAt
+tributeNumber":1,"DataTypeOI
+D":25,"DataTypeSize":-1,"Typ
+eModifier":-1,"Format":0}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"001"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"002"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"003"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"004"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"005"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"006"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"007"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"008"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"009"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"010"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"011"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"012"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"013"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"014"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"015"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"016"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"017"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"018"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"019"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"021"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"023"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"024"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"025"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"026"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"027"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"028"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"029"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"030"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"031"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"032"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"033"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"034"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"035"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"036"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"040"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"041"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"042"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"043"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"044"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"045"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"046"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"047"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"048"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"049"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"050"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"051"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"052"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"053"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"054"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"055"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"056"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"057"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"058"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"059"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"060"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"061"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"062"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"063"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"064"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"065"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"066"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"067"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"068"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"069"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"070"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"071"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"072"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"073"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"074"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"075"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"076"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"077"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"078"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"079"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"080"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"081"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"082"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"083"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"084"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"085"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"DataRow","Val
+ues":[{"text":"086"}]}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"SELECT 
+81"}
+2025/12/24 10:12:51 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+Skipping migration 085b_chec
+k_user_role_function.sql... 
+(file name must match 
+pattern 
+"<timestamp>_name.sql")
+Do you want to push these 
+migrations to the remote 
+database?
+ ΓÇó 087_reports_rpc.sql
+ ΓÇó 090_messaging_enhanceme
+nts.sql
+ ΓÇó 
+091_inventory_hierarchy.sql
+ ΓÇó 
+092_security_hardening.sql
+ ΓÇó 093_fix_metrics_and_not
+ifications.sql
+ ΓÇó 
+094_seed_metrics_data.sql
+
+ [Y/n] 2025/12/24 10:13:51 
+PG Recv: {"Type":"ParameterS
+tatus","Name":"application_n
+ame","Value":"Supavisor"}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"SET 
+lock_timeout = 
+'4s'","ParameterOIDs":null}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"CREATE SCHEMA 
+IF NOT EXISTS supabase_migra
+tions","ParameterOIDs":null}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"CREATE TABLE 
+IF NOT EXISTS supabase_migra
+tions.schema_migrations 
+(version text NOT NULL 
+PRIMARY 
+KEY)","ParameterOIDs":null}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"ALTER TABLE sup
+abase_migrations.schema_migr
+ations ADD COLUMN IF NOT 
+EXISTS statements text[]","P
+arameterOIDs":null}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"ALTER TABLE sup
+abase_migrations.schema_migr
+ations ADD COLUMN IF NOT 
+EXISTS name 
+text","ParameterOIDs":null}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:02 PG 
+Send: {"Type":"Sync"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"SET"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Severity":"NOTICE","
+SeverityUnlocalized":"NOTICE
+","Code":"42P06","Message":"
+schema 
+\"supabase_migrations\" 
+already exists, skipping","D
+etail":"","Hint":"","Positio
+n":0,"InternalPosition":0,"I
+nternalQuery":"","Where":"",
+"SchemaName":"","TableName":
+"","ColumnName":"","DataType
+Name":"","ConstraintName":""
+,"File":"schemacmds.c","Line
+":132,"Routine":"CreateSchem
+aCommand","UnknownFields":nu
+ll}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"CREATE 
+SCHEMA"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Severity":"NOTICE","
+SeverityUnlocalized":"NOTICE
+","Code":"42P07","Message":"
+relation 
+\"schema_migrations\" 
+already exists, skipping","D
+etail":"","Hint":"","Positio
+n":0,"InternalPosition":0,"I
+nternalQuery":"","Where":"",
+"SchemaName":"","TableName":
+"","ColumnName":"","DataType
+Name":"","ConstraintName":""
+,"File":"parse_utilcmd.c","L
+ine":207,"Routine":"transfor
+mCreateStmt","UnknownFields"
+:null}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"CREATE 
+TABLE"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Severity":"NOTICE","
+SeverityUnlocalized":"NOTICE
+","Code":"42701","Message":"
+column \"statements\" of 
+relation 
+\"schema_migrations\" 
+already exists, skipping","D
+etail":"","Hint":"","Positio
+n":0,"InternalPosition":0,"I
+nternalQuery":"","Where":"",
+"SchemaName":"","TableName":
+"","ColumnName":"","DataType
+Name":"","ConstraintName":""
+,"File":"tablecmds.c","Line"
+:7471,"Routine":"check_for_c
+olumn_name_collision","Unkno
+wnFields":null}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"ALTER 
+TABLE"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Severity":"NOTICE","
+SeverityUnlocalized":"NOTICE
+","Code":"42701","Message":"
+column \"name\" of relation 
+\"schema_migrations\" 
+already exists, skipping","D
+etail":"","Hint":"","Positio
+n":0,"InternalPosition":0,"I
+nternalQuery":"","Where":"",
+"SchemaName":"","TableName":
+"","ColumnName":"","DataType
+Name":"","ConstraintName":""
+,"File":"tablecmds.c","Line"
+:7471,"Routine":"check_for_c
+olumn_name_collision","Unkno
+wnFields":null}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"ALTER 
+TABLE"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+Applying migration 
+087_reports_rpc.sql...
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Query","Strin
+g":"RESET ALL"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"RESET"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- Migration 
+087: Reports RPCs and 
+Security Access\r\n-- 
+Objective: Provide 
+aggregated data for reports 
+and ensure Super Admin 
+access to audits.\r\n\r\n-- 
+1. Inventory Valuation 
+Report\r\n-- Returns total 
+cost value and total retail 
+value of current 
+stock.\r\nCREATE OR REPLACE 
+FUNCTION inventory.get_inven
+tory_valuation(p_facility_id
+ UUID)\r\nRETURNS TABLE 
+(\r\n    total_cost_value 
+NUMERIC,\r\n    
+total_retail_value 
+NUMERIC,\r\n    item_count 
+BIGINT,\r\n    batch_count 
+BIGINT\r\n)\r\nLANGUAGE 
+plpgsql\r\nSECURITY 
+DEFINER\r\nSET search_path 
+= inventory, commerce, 
+public\r\nAS 
+$$\r\nBEGIN\r\n    -- Check 
+permissions (Admin, 
+Pharmacist, Super 
+Admins)\r\n    IF NOT public
+.check_user_role(auth.uid(),
+ 'admin') AND\r\n       NOT 
+public.check_user_role(auth.
+uid(), 'pharmacist') 
+AND\r\n       NOT public.che
+ck_is_super_admin(auth.uid()
+) THEN\r\n        RAISE 
+EXCEPTION 'Access 
+denied';\r\n    END 
+IF;\r\n\r\n    RETURN 
+QUERY\r\n    SELECT \r\n    
+    
+COALESCE(SUM(ib.unit_cost * 
+ib.quantity), 0) as 
+total_cost_value,\r\n       
+ COALESCE(SUM(i.unit_price 
+* ib.quantity), 0) as 
+total_retail_value,\r\n     
+   COUNT(DISTINCT i.id) as 
+item_count,\r\n        
+COUNT(ib.id) as 
+batch_count\r\n    FROM 
+inventory.item_batches 
+ib\r\n    JOIN 
+inventory.items i ON 
+ib.item_id = i.id\r\n    
+WHERE ib.quantity \u003e 
+0\r\n    AND (\r\n        (p
+ublic.check_is_super_admin(a
+uth.uid()) AND 
+(p_facility_id IS NULL OR 
+i.facility_id = 
+p_facility_id)) -- Super 
+Admin can view all or 
+specific\r\n        OR\r\n  
+      (i.facility_id = 
+p_facility_id) -- Local 
+users restricted to their 
+facility\r\n    );\r\nEND;\r
+\n$$","ParameterOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- 2. Expiry 
+Risk Report\r\n-- Returns 
+batches expiring within a 
+specified number of days 
+(default 90).\r\nCREATE OR 
+REPLACE FUNCTION inventory.g
+et_expiry_risk_report(p_faci
+lity_id UUID, p_days INT 
+DEFAULT 90)\r\nRETURNS 
+TABLE (\r\n    batch_number 
+TEXT,\r\n    drug_name 
+TEXT,\r\n    expiry_date 
+DATE,\r\n    quantity 
+INT,\r\n    
+days_until_expiry 
+INT\r\n)\r\nLANGUAGE 
+plpgsql\r\nSECURITY 
+DEFINER\r\nSET search_path 
+= inventory, public\r\nAS 
+$$\r\nBEGIN\r\n    IF NOT pu
+blic.check_user_role(auth.ui
+d(), 'admin') AND\r\n       
+NOT public.check_user_role(a
+uth.uid(), 'pharmacist') 
+AND\r\n       NOT public.che
+ck_is_super_admin(auth.uid()
+) THEN\r\n        RAISE 
+EXCEPTION 'Access 
+denied';\r\n    END 
+IF;\r\n\r\n    RETURN 
+QUERY\r\n    SELECT \r\n    
+    ib.batch_number,\r\n    
+    i.name as 
+drug_name,\r\n        
+ib.expiry_date,\r\n        
+ib.quantity,\r\n        
+(ib.expiry_date - 
+CURRENT_DATE)::INT as 
+days_until_expiry\r\n    
+FROM inventory.item_batches 
+ib\r\n    JOIN 
+inventory.items i ON 
+ib.item_id = i.id\r\n    
+WHERE ib.quantity \u003e 
+0\r\n    AND ib.expiry_date 
+\u003c= (CURRENT_DATE + 
+p_days)\r\n    AND (\r\n    
+    (public.check_is_super_a
+dmin(auth.uid()) AND 
+(p_facility_id IS NULL OR 
+i.facility_id = 
+p_facility_id))\r\n        
+OR\r\n        
+(i.facility_id = 
+p_facility_id)\r\n    )\r\n 
+   ORDER BY ib.expiry_date A
+SC;\r\nEND;\r\n$$","Paramete
+rOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- 3. Period 
+Sales Report\r\n-- Returns 
+daily sales aggregates for 
+a given period.\r\nCREATE 
+OR REPLACE FUNCTION commerce
+.get_period_sales_report(p_f
+acility_id UUID, 
+p_start_date TIMESTAMP, 
+p_end_date 
+TIMESTAMP)\r\nRETURNS TABLE 
+(\r\n    sale_date 
+DATE,\r\n    total_revenue 
+NUMERIC,\r\n    
+transaction_count 
+BIGINT\r\n)\r\nLANGUAGE 
+plpgsql\r\nSECURITY 
+DEFINER\r\nSET search_path 
+= commerce, public\r\nAS 
+$$\r\nBEGIN\r\n    IF NOT pu
+blic.check_user_role(auth.ui
+d(), 'admin') AND\r\n       
+NOT public.check_user_role(a
+uth.uid(), 'pharmacist') 
+AND\r\n       NOT public.che
+ck_is_super_admin(auth.uid()
+) THEN\r\n        RAISE 
+EXCEPTION 'Access 
+denied';\r\n    END 
+IF;\r\n\r\n    RETURN 
+QUERY\r\n    SELECT \r\n    
+    DATE(created_at) as 
+sale_date,\r\n        
+COALESCE(SUM(total_amount), 
+0) as total_revenue,\r\n    
+    COUNT(*) as 
+transaction_count\r\n    
+FROM commerce.sales\r\n    
+WHERE facility_id = 
+p_facility_id\r\n    AND 
+created_at \u003e= 
+p_start_date\r\n    AND 
+created_at \u003c= 
+p_end_date\r\n    GROUP BY 
+DATE(created_at)\r\n    
+ORDER BY DATE(created_at) DE
+SC;\r\nEND;\r\n$$","Paramete
+rOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- 4. Super 
+Admin Audit Access 
+(Security 
+Requirement)\r\n-- Ensure 
+'super_admin_dev' can read 
+ALL rows in 
+audit.audit_logs\r\nDROP 
+POLICY IF EXISTS \"Super 
+Admin Dev Audit Access\" ON 
+audit.audit_logs","Parameter
+OIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"CREATE POLICY 
+\"Super Admin Dev Audit 
+Access\"\r\nON 
+audit.audit_logs\r\nFOR 
+SELECT\r\nTO 
+authenticated\r\nUSING 
+(\r\n    public.check_user_r
+ole(auth.uid(), 
+'super_admin_dev')\r\n    
+OR\r\n    public.check_user_
+role(auth.uid(), 
+'super_admin_bms')\r\n    
+-- OR existing logic for 
+facility admins (handled by 
+other policies usually, but 
+ensuring explicit super 
+access here)\r\n)","Paramete
+rOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- Grant 
+Execute 
+Permissions\r\nGRANT 
+EXECUTE ON FUNCTION inventor
+y.get_inventory_valuation(UU
+ID) TO authenticated","Param
+eterOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"GRANT EXECUTE 
+ON FUNCTION inventory.get_ex
+piry_risk_report(UUID, INT) 
+TO authenticated","Parameter
+OIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"GRANT EXECUTE 
+ON FUNCTION commerce.get_per
+iod_sales_report(UUID, 
+TIMESTAMP, TIMESTAMP) TO aut
+henticated","ParameterOIDs":
+null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"-- Comment for 
+documentation\r\nCOMMENT ON 
+FUNCTION inventory.get_inven
+tory_valuation IS 
+'Calculates financial value 
+of current stock for reports
+.'","ParameterOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"COMMENT ON 
+FUNCTION inventory.get_expir
+y_risk_report IS 'Lists 
+stock expiring soon for 
+risk management.'","Paramete
+rOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"COMMENT ON 
+FUNCTION commerce.get_period
+_sales_report IS 
+'Aggregates sales revenue 
+by day for a given date rang
+e.'","ParameterOIDs":null}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":null,"Parameters":[],"
+ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Parse","Name"
+:"","Query":"INSERT INTO sup
+abase_migrations.schema_migr
+ations(version, name, 
+statements) VALUES($1, $2, $
+3)","ParameterOIDs":[25,25,1
+009]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Bind","Destin
+ationPortal":"","PreparedSta
+tement":"","ParameterFormatC
+odes":[0,0,1],"Parameters":[
+{"text":"087"},{"text":"repo
+rts_rpc"},{"binary":"0000000
+100000000000000190000000b000
+00001000005e92d2d204d6967726
+174696f6e203038373a205265706
+f727473205250437320616e64205
+3656375726974792041636365737
+30d0a2d2d204f626a65637469766
+53a2050726f76696465206167677
+2656761746564206461746120666
+f72207265706f72747320616e642
+0656e73757265205375706572204
+1646d696e2061636365737320746
+f206175646974732e0d0a0d0a2d2
+d20312e20496e76656e746f72792
+056616c756174696f6e205265706
+f72740d0a2d2d2052657475726e7
+320746f74616c20636f737420766
+16c756520616e6420746f74616c2
+072657461696c2076616c7565206
+f662063757272656e742073746f6
+36b2e0d0a435245415445204f522
+05245504c4143452046554e43544
+94f4e20696e76656e746f72792e6
+765745f696e76656e746f72795f7
+6616c756174696f6e28705f66616
+3696c6974795f696420555549442
+90d0a52455455524e53205441424
+c4520280d0a20202020746f74616
+c5f636f73745f76616c7565204e5
+54d455249432c0d0a20202020746
+f74616c5f72657461696c5f76616
+c7565204e554d455249432c0d0a2
+02020206974656d5f636f756e742
+0424947494e542c0d0a202020206
+2617463685f636f756e742042494
+7494e540d0a290d0a4c414e47554
+1474520706c706773716c0d0a534
+543555249545920444546494e455
+20d0a534554207365617263685f7
+0617468203d20696e76656e746f7
+2792c20636f6d6d657263652c207
+075626c69630d0a41532024240d0
+a424547494e0d0a202020202d2d2
+0436865636b207065726d6973736
+96f6e73202841646d696e2c20506
+861726d61636973742c205375706
+5722041646d696e73290d0a20202
+0204946204e4f54207075626c696
+32e636865636b5f757365725f726
+f6c6528617574682e75696428292
+c202761646d696e272920414e440
+d0a202020202020204e4f5420707
+5626c69632e636865636b5f75736
+5725f726f6c6528617574682e756
+96428292c2027706861726d61636
+97374272920414e440d0a2020202
+02020204e4f54207075626c69632
+e636865636b5f69735f737570657
+25f61646d696e28617574682e756
+964282929205448454e0d0a20202
+0202020202052414953452045584
+3455054494f4e202741636365737
+32064656e696564273b0d0a20202
+020454e442049463b0d0a0d0a202
+0202052455455524e20515545525
+90d0a2020202053454c454354200
+d0a2020202020202020434f414c4
+55343452853554d2869622e756e6
+9745f636f7374202a2069622e717
+5616e74697479292c20302920617
+320746f74616c5f636f73745f766
+16c75652c0d0a202020202020202
+0434f414c455343452853554d286
+92e756e69745f7072696365202a2
+069622e7175616e74697479292c2
+0302920617320746f74616c5f726
+57461696c5f76616c75652c0d0a2
+020202020202020434f554e54284
+4495354494e435420692e6964292
+06173206974656d5f636f756e742
+c0d0a2020202020202020434f554
+e542869622e69642920617320626
+17463685f636f756e740d0a20202
+02046524f4d20696e76656e746f7
+2792e6974656d5f6261746368657
+32069620d0a202020204a4f494e2
+0696e76656e746f72792e6974656
+d732069204f4e2069622e6974656
+d5f6964203d20692e69640d0a202
+0202057484552452069622e71756
+16e74697479203e20300d0a20202
+020414e4420280d0a20202020202
+02020287075626c69632e6368656
+36b5f69735f73757065725f61646
+d696e28617574682e75696428292
+920414e442028705f666163696c6
+974795f6964204953204e554c4c2
+04f5220692e666163696c6974795
+f6964203d20705f666163696c697
+4795f69642929202d2d205375706
+5722041646d696e2063616e20766
+9657720616c6c206f72207370656
+3696669630d0a202020202020202
+04f520d0a2020202020202020286
+92e666163696c6974795f6964203
+d20705f666163696c6974795f696
+429202d2d204c6f63616c2075736
+5727320726573747269637465642
+0746f20746865697220666163696
+c6974790d0a20202020293b0d0a4
+54e443b0d0a2424000004e82d2d2
+0322e20457870697279205269736
+b205265706f72740d0a2d2d20526
+57475726e7320626174636865732
+06578706972696e6720776974686
+96e2061207370656369666965642
+06e756d626572206f66206461797
+3202864656661756c74203930292
+e0d0a435245415445204f5220524
+5504c4143452046554e4354494f4
+e20696e76656e746f72792e67657
+45f6578706972795f7269736b5f7
+265706f727428705f666163696c6
+974795f696420555549442c20705
+f6461797320494e5420444546415
+54c54203930290d0a52455455524
+e53205441424c4520280d0a20202
+02062617463685f6e756d6265722
+0544558542c0d0a2020202064727
+5675f6e616d6520544558542c0d0
+a202020206578706972795f64617
+46520444154452c0d0a202020207
+175616e7469747920494e542c0d0
+a20202020646179735f756e74696
+c5f65787069727920494e540d0a2
+90d0a4c414e475541474520706c7
+06773716c0d0a534543555249545
+920444546494e45520d0a5345542
+07365617263685f70617468203d2
+0696e76656e746f72792c2070756
+26c69630d0a41532024240d0a424
+547494e0d0a202020204946204e4
+f54207075626c69632e636865636
+b5f757365725f726f6c652861757
+4682e75696428292c202761646d6
+96e272920414e440d0a202020202
+020204e4f54207075626c69632e6
+36865636b5f757365725f726f6c6
+528617574682e75696428292c202
+7706861726d61636973742729204
+14e440d0a202020202020204e4f5
+4207075626c69632e636865636b5
+f69735f73757065725f61646d696
+e28617574682e756964282929205
+448454e0d0a20202020202020205
+24149534520455843455054494f4
+e20274163636573732064656e696
+564273b0d0a20202020454e44204
+9463b0d0a0d0a202020205245545
+5524e2051554552590d0a2020202
+053454c454354200d0a202020202
+020202069622e62617463685f6e7
+56d6265722c0d0a2020202020202
+020692e6e616d652061732064727
+5675f6e616d652c0d0a202020202
+020202069622e6578706972795f6
+46174652c0d0a202020202020202
+069622e7175616e746974792c0d0
+a20202020202020202869622e657
+8706972795f64617465202d20435
+55252454e545f44415445293a3a4
+94e5420617320646179735f756e7
+4696c5f6578706972790d0a20202
+02046524f4d20696e76656e746f7
+2792e6974656d5f6261746368657
+32069620d0a202020204a4f494e2
+0696e76656e746f72792e6974656
+d732069204f4e2069622e6974656
+d5f6964203d20692e69640d0a202
+0202057484552452069622e71756
+16e74697479203e20300d0a20202
+020414e442069622e65787069727
+95f64617465203c3d20284355525
+2454e545f44415445202b20705f6
+4617973290d0a20202020414e442
+0280d0a202020202020202028707
+5626c69632e636865636b5f69735
+f73757065725f61646d696e28617
+574682e75696428292920414e442
+028705f666163696c6974795f696
+4204953204e554c4c204f5220692
+e666163696c6974795f6964203d2
+0705f666163696c6974795f69642
+9290d0a20202020202020204f520
+d0a202020202020202028692e666
+163696c6974795f6964203d20705
+f666163696c6974795f6964290d0
+a20202020290d0a202020204f524
+445522042592069622e657870697
+2795f64617465204153433b0d0a4
+54e443b0d0a2424000003f32d2d2
+0332e20506572696f642053616c6
+573205265706f72740d0a2d2d205
+2657475726e73206461696c79207
+3616c65732061676772656761746
+57320666f72206120676976656e2
+0706572696f642e0d0a435245415
+445204f52205245504c414345204
+6554e4354494f4e20636f6d6d657
+263652e6765745f706572696f645
+f73616c65735f7265706f7274287
+05f666163696c6974795f6964205
+55549442c20705f73746172745f6
+46174652054494d455354414d502
+c20705f656e645f6461746520544
+94d455354414d50290d0a5245545
+5524e53205441424c4520280d0a2
+020202073616c655f64617465204
+44154452c0d0a20202020746f746
+16c5f726576656e7565204e554d4
+55249432c0d0a202020207472616
+e73616374696f6e5f636f756e742
+0424947494e540d0a290d0a4c414
+e475541474520706c706773716c0
+d0a5345435552495459204445464
+94e45520d0a53455420736561726
+3685f70617468203d20636f6d6d6
+57263652c207075626c69630d0a4
+1532024240d0a424547494e0d0a2
+02020204946204e4f54207075626
+c69632e636865636b5f757365725
+f726f6c6528617574682e7569642
+8292c202761646d696e272920414
+e440d0a202020202020204e4f542
+07075626c69632e636865636b5f7
+57365725f726f6c6528617574682
+e75696428292c2027706861726d6
+163697374272920414e440d0a202
+020202020204e4f54207075626c6
+9632e636865636b5f69735f73757
+065725f61646d696e28617574682
+e756964282929205448454e0d0a2
+0202020202020205241495345204
+55843455054494f4e20274163636
+573732064656e696564273b0d0a2
+0202020454e442049463b0d0a0d0
+a2020202052455455524e2051554
+552590d0a2020202053454c45435
+4200d0a202020202020202044415
+44528637265617465645f6174292
+061732073616c655f646174652c0
+d0a2020202020202020434f414c4
+55343452853554d28746f74616c5
+f616d6f756e74292c20302920617
+320746f74616c5f726576656e756
+52c0d0a2020202020202020434f5
+54e54282a29206173207472616e7
+3616374696f6e5f636f756e740d0
+a2020202046524f4d20636f6d6d6
+57263652e73616c65730d0a20202
+020574845524520666163696c697
+4795f6964203d20705f666163696
+c6974795f69640d0a20202020414
+e4420637265617465645f6174203
+e3d20705f73746172745f6461746
+50d0a20202020414e44206372656
+17465645f6174203c3d20705f656
+e645f646174650d0a20202020475
+24f5550204259204441544528637
+265617465645f6174290d0a20202
+0204f52444552204259204441544
+528637265617465645f617429204
+44553433b0d0a454e443b0d0a242
+4000000c22d2d20342e205375706
+5722041646d696e2041756469742
+0416363657373202853656375726
+9747920526571756972656d656e7
+4290d0a2d2d20456e73757265202
+773757065725f61646d696e5f646
+576272063616e207265616420414
+c4c20726f777320696e206175646
+9742e61756469745f6c6f67730d0
+a44524f5020504f4c49435920494
+6204558495354532022537570657
+22041646d696e204465762041756
+469742041636365737322204f4e2
+061756469742e61756469745f6c6
+f677300000164435245415445205
+04f4c49435920225375706572204
+1646d696e2044657620417564697
+420416363657373220d0a4f4e206
+1756469742e61756469745f6c6f6
+7730d0a464f522053454c4543540
+d0a544f2061757468656e7469636
+17465640d0a5553494e4720280d0
+a202020207075626c69632e63686
+5636b5f757365725f726f6c65286
+17574682e75696428292c2027737
+57065725f61646d696e5f6465762
+7290d0a202020204f520d0a20202
+0207075626c69632e636865636b5
+f757365725f726f6c65286175746
+82e75696428292c2027737570657
+25f61646d696e5f626d7327290d0
+a202020202d2d204f52206578697
+374696e67206c6f67696320666f7
+220666163696c6974792061646d6
+96e73202868616e646c656420627
+9206f7468657220706f6c6963696
+57320757375616c6c792c2062757
+420656e737572696e67206578706
+c696369742073757065722061636
+36573732068657265290d0a29000
+000702d2d204772616e742045786
+563757465205065726d697373696
+f6e730d0a4752414e54204558454
+3555445204f4e2046554e4354494
+f4e20696e76656e746f72792e676
+5745f696e76656e746f72795f766
+16c756174696f6e2855554944292
+0544f2061757468656e746963617
+46564000000564752414e5420455
+84543555445204f4e2046554e435
+4494f4e20696e76656e746f72792
+e6765745f6578706972795f72697
+36b5f7265706f727428555549442
+c20494e542920544f20617574686
+56e7469636174656400000067475
+2414e542045584543555445204f4
+e2046554e4354494f4e20636f6d6
+d657263652e6765745f706572696
+f645f73616c65735f7265706f727
+428555549442c2054494d4553544
+14d502c2054494d455354414d502
+920544f2061757468656e7469636
+1746564000000912d2d20436f6d6
+d656e7420666f7220646f63756d6
+56e746174696f6e0d0a434f4d4d4
+54e54204f4e2046554e4354494f4
+e20696e76656e746f72792e67657
+45f696e76656e746f72795f76616
+c756174696f6e204953202743616
+c63756c617465732066696e616e6
+369616c2076616c7565206f66206
+3757272656e742073746f636b206
+66f72207265706f7274732e27000
+00068434f4d4d454e54204f4e204
+6554e4354494f4e20696e76656e7
+46f72792e6765745f65787069727
+95f7269736b5f7265706f7274204
+95320274c697374732073746f636
+b206578706972696e6720736f6f6
+e20666f72207269736b206d616e6
+167656d656e742e2700000071434
+f4d4d454e54204f4e2046554e435
+4494f4e20636f6d6d657263652e6
+765745f706572696f645f73616c6
+5735f7265706f727420495320274
+16767726567617465732073616c6
+57320726576656e7565206279206
+4617920666f72206120676976656
+e20646174652072616e67652e27"
+}],"ResultFormatCodes":[]}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Describe","Ob
+jectType":"P","Name":""}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Execute","Por
+tal":"","MaxRows":0}
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Sync"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"CREATE 
+FUNCTION"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"CREATE 
+FUNCTION"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"CREATE 
+FUNCTION"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Severity":"NOTICE","
+SeverityUnlocalized":"NOTICE
+","Code":"00000","Message":"
+policy \"Super Admin Dev 
+Audit Access\" for relation 
+\"audit.audit_logs\" does 
+not exist, skipping","Detail
+":"","Hint":"","Position":0,
+"InternalPosition":0,"Intern
+alQuery":"","Where":"","Sche
+maName":"","TableName":"","C
+olumnName":"","DataTypeName"
+:"","ConstraintName":"","Fil
+e":"dropcmds.c","Line":523,"
+Routine":"does_not_exist_ski
+pping","UnknownFields":null}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"CommandComple
+te","CommandTag":"DROP 
+POLICY"}
+NOTICE (00000): policy 
+"Super Admin Dev Audit 
+Access" for relation 
+"audit.audit_logs" does not 
+exist, skipping
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"ParseComplete"}
+2025/12/24 10:14:03 PG 
+Recv: 
+{"Type":"BindComplete"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"NoData"}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"ErrorResponse
+","Severity":"ERROR","Severi
+tyUnlocalized":"ERROR","Code
+":"42883","Message":"functio
+n public.check_user_role(uui
+d, unknown) does not exist",
+"Detail":"","Hint":"No 
+function matches the given 
+name and argument types. 
+You might need to add 
+explicit type casts.","Posit
+ion":0,"InternalPosition":0,
+"InternalQuery":"","Where":"
+","SchemaName":"","TableName
+":"","ColumnName":"","DataTy
+peName":"","ConstraintName":
+"","File":"parse_func.c","Li
+ne":629,"Routine":"ParseFunc
+OrColumn","UnknownFields":nu
+ll}
+2025/12/24 10:14:03 PG 
+Recv: {"Type":"ReadyForQuery
+","TxStatus":"I"}
+ERROR: function public.check
+_user_role(uuid, unknown) 
+does not exist (SQLSTATE 
+42883)                      
+              
+At statement: 4             
+                            
+                            
+                            
+         
+CREATE POLICY "Super Admin 
+Dev Audit Access"           
+                            
+                            
+          
+ON audit.audit_logs         
+                            
+                            
+                            
+         
+FOR SELECT                  
+                            
+                            
+                            
+         
+TO authenticated            
+                            
+                            
+                            
+         
+USING (                     
+                            
+                            
+                            
+         
+    public.check_user_role(a
+uth.uid(), 
+'super_admin_dev')          
+                            
+                          
+    OR                      
+                            
+                            
+                            
+         
+    public.check_user_role(a
+uth.uid(), 
+'super_admin_bms')          
+                            
+                          
+    -- OR existing logic 
+for facility admins 
+(handled by other policies 
+usually, but ensuring 
+explicit super access here)
+)                           
+                            
+                            
+                            
+         
+2025/12/24 10:14:03 PG 
+Send: {"Type":"Terminate"}

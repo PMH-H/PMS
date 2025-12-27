@@ -110,36 +110,84 @@ const analyzePrescriptionImageDirect = async (base64Image: string): Promise<Medi
     return [];
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: 'Extract all medications from this prescription image. Return a JSON array with objects containing: name (medication name), dosage (e.g., "500mg"), frequency (e.g., "twice daily"). Only return the JSON array, no other text.' },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Image.split(',')[1] } }
-          ]
-        }]
-      })
-    }
-  );
+  // Handle both data URL format (data:image/...) and raw base64
+  let imageData = base64Image;
+  let mimeType = 'image/jpeg';
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gemini API response:', errorText);
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  if (base64Image.includes(',')) {
+    // Data URL format - extract mime type and data
+    const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
+    if (matches) {
+      mimeType = matches[1];
+      imageData = matches[2];
+    } else {
+      imageData = base64Image.split(',')[1] || base64Image;
+    }
   }
 
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  console.log('[Gemini Direct] Analyzing prescription image...');
 
-  // Extract JSON from response
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  const medications = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                text: `You are a prescription OCR system. Analyze this prescription image carefully.
+Extract ALL medications visible in the image.
 
-  return medications.map((item: any) => ({ ...item, id: generateUUID() }));
+Return ONLY a valid JSON array with this exact structure (no markdown, no explanation):
+[
+  {
+    "name": "medication name",
+    "dosage": "strength (e.g., 500mg)",
+    "frequency": "how often (e.g., twice daily)"
+  }
+]
+
+If no medications are visible or the image is unclear, return: []
+Be thorough - extract every medication you can identify.`
+              },
+              { inline_data: { mime_type: mimeType, data: imageData } }
+            ]
+          }]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Gemini Direct] API response error:', response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[Gemini Direct] API response received');
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+
+    // Clean up response - remove markdown code blocks if present
+    const cleanText = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+    // Extract JSON array from response
+    const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.warn('[Gemini Direct] No JSON array found in response:', cleanText.substring(0, 200));
+      return [];
+    }
+
+    const medications = JSON.parse(jsonMatch[0]);
+    console.log('[Gemini Direct] Parsed medications:', medications.length);
+
+    return medications.map((item: any) => ({ ...item, id: generateUUID() }));
+  } catch (err) {
+    console.error('[Gemini Direct] Error:', err);
+    throw err;
+  }
 };
 
 export const chatWithAssistant = async (message: string, role: string): Promise<string> => {

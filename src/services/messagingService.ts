@@ -22,9 +22,65 @@ export const messagingService = {
      * Fetch list of active conversations (threads) for the current user
      */
     getConversations: async (userId: string) => {
-        const { data, error } = await supabase.rpc('get_conversations', { p_user_id: userId });
+        // Fallback: Fetch raw messages and aggregate client-side since RPC is missing
+        const { data: messages, error } = await supabase
+            .from('messages')
+            .select('*')
+            .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+            .order('created_at', { ascending: false })
+            .limit(200);
+
         if (error) throw error;
-        return data as ChatUser[];
+
+        const conversationsMap = new Map<string, ChatUser>();
+        const partnerIds = new Set<string>();
+
+        for (const msg of (messages || [])) {
+            const isMe = msg.sender_id === userId;
+            const partnerId = isMe ? msg.recipient_id : msg.sender_id;
+
+            if (!partnerId) continue; // Skip facility-only messages if any
+
+            partnerIds.add(partnerId);
+
+            if (!conversationsMap.has(partnerId)) {
+                conversationsMap.set(partnerId, {
+                    partner_id: partnerId,
+                    partner_name: 'Loading...', // Placeholder
+                    partner_role: 'user',
+                    last_message_content: msg.content || (msg.media_url ? '[Attachment]' : ''),
+                    last_message_at: msg.created_at,
+                    unread_count: 0
+                });
+            }
+
+            // Increment unread count if incoming and unread
+            if (!isMe && !msg.is_read) {
+                const conv = conversationsMap.get(partnerId)!;
+                conv.unread_count += 1;
+            }
+        }
+
+        if (partnerIds.size === 0) return [];
+
+        // Fetch partner profiles
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, role, avatar_url')
+            .in('id', Array.from(partnerIds));
+
+        // Merge profile data
+        const results = Array.from(conversationsMap.values()).map(conv => {
+            const profile = profiles?.find(p => p.id === conv.partner_id);
+            return {
+                ...conv,
+                partner_name: profile?.full_name || 'Unknown User',
+                partner_role: profile?.role || 'user',
+                partner_avatar: profile?.avatar_url
+            };
+        });
+
+        return results;
     },
 
     /**
