@@ -18,6 +18,22 @@ interface ChatAssistantProps {
 const ChatAssistant: React.FC<ChatAssistantProps> = ({ role, embedded = false }) => {
     const [isOpen, setIsOpen] = useState(embedded);
     const [isHovered, setIsHovered] = useState(false);
+    const [isVisible, setIsVisible] = useState(true); // Control visibility of the trigger button
+
+    // Auto-hide the trigger button after inactivity
+    useEffect(() => {
+        if (embedded || isOpen) return;
+
+        const hideTimer = setTimeout(() => {
+            setIsVisible(false);
+        }, 10000); // Hide after 10s of inactivity
+
+        return () => clearTimeout(hideTimer);
+    }, [embedded, isOpen, isHovered]);
+
+    // Show when hovered (handled by CSS group-hover usually, but we can force state)
+    // Actually, if it's hidden (display:none or opacity:0), we need a "trigger zone".
+
     const [messages, setMessages] = useState<{ sender: 'user' | 'ai', text: string }[]>([
         { sender: 'ai', text: `Hello! I'm your ${role === UserRole.CUSTOMER ? 'health' : 'pharmacy'} assistant. How can I help you today?` }
     ]);
@@ -60,34 +76,39 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ role, embedded = false })
         return (
             <div
                 className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 group"
-                onMouseEnter={() => setIsHovered(true)}
+                onMouseEnter={() => { setIsHovered(true); setIsVisible(true); }}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Speech Bubble Hint */}
-                <div className={`mr-4 mb-2 bg-white px-4 py-2 rounded-xl rounded-tr-none shadow-lg border border-indigo-100 transition-all duration-300 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-75 opacity-0 translate-y-4'}`}>
+                {/* Speech Bubble Hint - Only show if visible or hovered */}
+                <div className={`mr-4 mb-2 bg-white px-4 py-2 rounded-xl rounded-tr-none shadow-lg border border-indigo-100 transition-all duration-500 origin-bottom-right ${isVisible || isHovered ? 'scale-100 opacity-100' : 'scale-0 opacity-0 translate-y-10'}`}>
                     <p className="text-sm font-medium text-slate-700">Need help? Click me!</p>
                 </div>
 
-                {/* Flying Robot Container */}
+                {/* Flying Robot Container - Collapses to a small pill when hidden */}
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="relative w-24 h-24 focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                    className={`relative focus:outline-none transition-all duration-500 ease-in-out ${isVisible || isHovered ? 'w-24 h-24 hover:scale-110 active:scale-95' : 'w-12 h-12 translate-y-4 opacity-50 hover:opacity-100'}`}
                 >
-                    {/* CSS Float Animation */}
-                    <div className="absolute inset-0 animate-[bounce_3s_infinite_ease-in-out]">
-                        {/* Robot Body (SVG Fallback/Representation) */}
-                        <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl filter" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="100" cy="100" r="90" fill="#6366f1" className="opacity-20 animate-pulse" />
-                            <path d="M100 60C70 60 50 85 50 110C50 145 75 160 100 160C125 160 150 145 150 110C150 85 130 60 100 60Z" fill="white" stroke="#4f46e5" strokeWidth="4" />
-                            <rect x="75" y="90" width="15" height="10" rx="5" fill="#1e293b" />
-                            <rect x="110" y="90" width="15" height="10" rx="5" fill="#1e293b" />
-                            <path d="M100 50L100 30" stroke="#4f46e5" strokeWidth="4" strokeLinecap="round" />
-                            <circle cx="100" cy="25" r="8" fill="#ef4444" className="animate-ping" />
-                            <circle cx="100" cy="25" r="8" fill="#ef4444" />
-                            <path d="M85 130Q100 140 115 130" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" />
-                        </svg>
+                    {/* CSS Float Animation - Only animate when fully visible */}
+                    <div className={`absolute inset-0 ${isVisible || isHovered ? 'animate-[bounce_3s_infinite_ease-in-out]' : ''}`}>
+                        {/* Show Full Robot if Visible, else small icon */}
+                        {isVisible || isHovered ? (
+                            <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl filter" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="100" cy="100" r="90" fill="#6366f1" className="opacity-20 animate-pulse" />
+                                <path d="M100 60C70 60 50 85 50 110C50 145 75 160 100 160C125 160 150 145 150 110C150 85 130 60 100 60Z" fill="white" stroke="#4f46e5" strokeWidth="4" />
+                                <rect x="75" y="90" width="15" height="10" rx="5" fill="#1e293b" />
+                                <rect x="110" y="90" width="15" height="10" rx="5" fill="#1e293b" />
+                                <path d="M100 50L100 30" stroke="#4f46e5" strokeWidth="4" strokeLinecap="round" />
+                                <circle cx="100" cy="25" r="8" fill="#ef4444" className="animate-ping" />
+                                <circle cx="100" cy="25" r="8" fill="#ef4444" />
+                                <path d="M85 130Q100 140 115 130" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                        ) : (
+                            <div className="w-full h-full bg-indigo-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+                                <span className="text-xl">🤖</span>
+                            </div>
+                        )}
 
-                        {/* Lottie would go here: <Lottie animationData={robotData} loop={true} /> */}
                     </div>
                 </button>
             </div>

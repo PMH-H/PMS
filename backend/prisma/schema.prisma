@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id              String   @id @default(uuid())
+  role            String   // 'patient', 'pharmacist', 'admin', 'rider'
+  full_name       String?
+  email           String?
+  facility_id     String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime? @updatedAt
+
+  notifications   Notification[]
+
+  @@map("profiles")
+}
+
+model Facility {
+  id        String   @id @default(uuid())
+  name      String
+  type      String?
+  address   String?
+  latitude  Decimal?
+  longitude Decimal?
+  created_at DateTime @default(now())
+
+  @@map("facilities")
+}
+
+model Prescription {
+  id              String   @id @default(uuid())
+  patient_id      String
+  provider_id     String?
+  facility_id     String?
+  status          String   // 'pending', 'active', 'completed', 'cancelled'
+  medications     Json?    // [{ name, dosage, quantity }]
+  notes           String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime? @updatedAt
+
+  @@map("prescriptions")
+}
+
+model StoreOrder {
+  id              String   @id @default(uuid())
+  customer_id     String
+  facility_id     String?
+  status          String
+  total_amount    Decimal?
+  delivery_address String?
+  created_at      DateTime @default(now())
+  
+  @@map("store_orders")
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  sku         String?
+  facility_id String?
+  min_level   Int      @default(0)
+  max_level   Int?
+  
+  // Added manually to match DB state
+  unit        String?  @default("unit")
+  image_url   String?  @map("image_url")
+  price_cents Int?     @default(0) @map("price_cents")
+  category    String?  @default("general")
+  quantity    Int?     @default(0)
+  
+  created_at  DateTime @default(now())
+  
+  batches     ItemBatch[]
+
+  @@map("items")
+}
+
+model ItemBatch {
+  id              String   @id @default(uuid())
+  item_id         String
+  batch_number    String
+  expiry_date     DateTime
+  initial_quantity Int
+  current_quantity Int
+  cost_per_unit   Decimal?
+  
+  // Added manually to match DB state
+  facility_id     String?
+  supplier        String?
+  received_at     DateTime? @default(now())
+  
+  created_at      DateTime @default(now())
+
+  item            InventoryItem @relation(fields: [item_id], references: [id])
+  facility        Facility? @relation(fields: [facility_id], references: [id])
+
+  @@map("item_batches")
+}
+
+// --- METRICS TABLES ---
+
+model SystemMetric {
+  id              String   @id @default(uuid())
+  metric_category String   @map("metric_category")
+  metric_name     String   @map("metric_name")
+  metric_value    Decimal? @map("metric_value")
+  metric_unit     String?  @map("metric_unit")
+  facility_id     String?  @map("facility_id")
+  metadata        Json?
+  recorded_at     DateTime @default(now()) @map("recorded_at")
+
+  @@map("system_metrics")
+}
+
+model AuthEvent {
+  id              String   @id @default(uuid())
+  user_id         String?  @map("user_id")
+  event_type      String   @map("event_type")
+  success         Boolean  @default(true)
+  failure_reason  String?  @map("failure_reason")
+  metadata        Json?
+  created_at      DateTime @default(now()) @map("created_at")
+
+  @@map("auth_events")
+}
+
+model SecurityEvent {
+  id              String   @id @default(uuid())
+  event_type      String   @map("event_type")
+  user_id         String?  @map("user_id")
+  severity        String   @default("medium")
+  description     String?
+  metadata        Json?
+  resolved        Boolean  @default(false)
+  created_at      DateTime @default(now()) @map("created_at")
+
+  @@map("security_events")
+}
+
+model Sale {
+  id              String   @id @default(uuid())
+  facility_id     String
+  processed_by    String   // user_id
+  total_amount    Decimal
+  payment_method  String?
+  items           Json?    // Snapshot of items sold [{ item_id, quantity, price }]
+  created_at      DateTime @default(now())
+
+  @@map("sales")
+}
+
+model AuditLog {
+  id              String   @id @default(uuid())
+  facility_id     String?
+  performed_by    String   // user_id
+  action          String
+  details         Json?
+  created_at      DateTime @default(now())
+
+  @@map("audit_log")
+}
+
+// --- NEW MODEL FOR PHASE 4 ---
+
+model Notification {
+  id          String   @id @default(uuid())
+  user_id     String
+  type        String   // 'RX_UPDATE', 'INVENTORY_ALERT', 'GENERAL'
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  data        Json?    // Context data (e.g., { rxId: '...' })
+  created_at  DateTime @default(now())
+
+  user        Profile  @relation(fields: [user_id], references: [id])
+
+  @@map("notifications")
+}

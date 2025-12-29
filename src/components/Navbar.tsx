@@ -3,6 +3,7 @@ import { UserRole, User } from '../types';
 import { useShop } from '../context/ShopContext';
 import { ShoppingCart } from 'lucide-react';
 import { CartDrawer } from './CartDrawer';
+import { NotificationBell } from './NotificationBell';
 
 interface NavbarProps {
   currentUser: User;
@@ -97,18 +98,24 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToProfile }) => 
             </div>
           </div>
 
-          {/* Cart Button */}
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="p-2 mr-2 sm:mr-4 rounded-full hover:bg-indigo-600 transition-colors relative focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          >
-            <ShoppingCart size={22} />
-            {itemCount > 0 && (
-              <span className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
-                {itemCount}
-              </span>
-            )}
-          </button>
+          {currentUser.role !== UserRole.PHARMACIST && (
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="p-2 mr-2 sm:mr-4 rounded-full hover:bg-indigo-600 transition-colors relative focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <ShoppingCart size={22} />
+              {itemCount > 0 && (
+                <span className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Notification Bell */}
+          <div className="mr-2 sm:mr-4">
+            <NotificationBell userId={currentUser.id} />
+          </div>
 
           {/* Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
