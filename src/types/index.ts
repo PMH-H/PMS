@@ -110,6 +110,7 @@ export interface Drug {
   id: string;
   sku: string;
   name: string;
+  type?: string; // e.g. 'DRUG', 'EQUIPMENT'
   generic_name?: string;
   brand?: string;
   description?: string;
@@ -119,6 +120,7 @@ export interface Drug {
   barcode?: string;
   front_image_url?: string; // Matches DB column
   back_image_url?: string; // Matches DB column
+  is_prescribable?: boolean; // Default true
   category: 'A' | 'B' | 'C';
   ven_class?: 'V' | 'E' | 'N';
   min_level: number;
@@ -252,6 +254,7 @@ export interface SystemHealth {
 export interface InventoryItem {
   id: string; // Maps to Drug ID
   name: string;
+  type?: string;
   currentStock: number; // Aggregated from batches
   unit: string;
   expirationDate: string; // Earliest batch expiry
@@ -1052,4 +1055,13 @@ export interface PlatformMetrics {
   store_revenue_cents: number;
   customer_satisfaction: number;
   system_uptime_percent: number;
+}
+
+export interface SystemAlert {
+  id: string;
+  message: string;
+  type: 'info' | 'warning' | 'critical' | 'maintenance';
+  is_active: boolean;
+  created_at: string;
+  expires_at?: string;
 }

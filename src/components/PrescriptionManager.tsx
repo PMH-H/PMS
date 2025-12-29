@@ -176,7 +176,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
-                        {tab}
+                        {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                         <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100">
                             {prescriptions.filter(p => tab === 'ALL' || p.status === tab).length}
                         </span>
@@ -203,7 +203,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                     <div className="flex items-center gap-3 mb-2">
                                         <h3 className="font-bold text-lg text-gray-900">{prescription.patientName}</h3>
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadge(prescription.status)}`}>
-                                            {prescription.status}
+                                            {prescription.status.charAt(0) + prescription.status.slice(1).toLowerCase()}
                                         </span>
                                     </div>
 
@@ -291,7 +291,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ currentUser, 
                                 <div className="bg-gray-50 p-3 rounded-lg">
                                     <p className="text-xs font-bold text-gray-500 uppercase">Status</p>
                                     <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadge(selectedPrescription.status)}`}>
-                                        {selectedPrescription.status}
+                                        {selectedPrescription.status.charAt(0) + selectedPrescription.status.slice(1).toLowerCase()}
                                     </span>
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded-lg">

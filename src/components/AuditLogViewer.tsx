@@ -27,9 +27,41 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ facilityId }) => {
     });
     const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
+    const [stats, setStats] = useState({
+        total: 0,
+        inserts: 0,
+        updates: 0,
+        deletes: 0
+    });
+
     useEffect(() => {
         fetchLogs();
+        fetchStats();
     }, [filters, facilityId]);
+
+    const fetchStats = async () => {
+        try {
+            // Apply filtering if needed, but for general stats 'all' is usually better unless strict scope
+            let baseQuery = supabase.from('audit_log').select('*', { count: 'exact', head: true });
+            if (facilityId) baseQuery = baseQuery.eq('facility_id', facilityId);
+
+            const [total, inserts, updates, deletes] = await Promise.all([
+                baseQuery,
+                supabase.from('audit_log').select('*', { count: 'exact', head: true }).eq('action', 'INSERT'),
+                supabase.from('audit_log').select('*', { count: 'exact', head: true }).eq('action', 'UPDATE'),
+                supabase.from('audit_log').select('*', { count: 'exact', head: true }).eq('action', 'DELETE'),
+            ]);
+
+            setStats({
+                total: total.count || 0,
+                inserts: inserts.count || 0,
+                updates: updates.count || 0,
+                deletes: deletes.count || 0
+            });
+        } catch (e) {
+            console.error("Error fetching stats", e);
+        }
+    };
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -112,6 +144,26 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ facilityId }) => {
                 </button>
             </div>
 
+            {/* Statistics */}
+            <div className="grid grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Total Actions</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Inserts</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.inserts.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Updates</p>
+                    <p className="text-2xl font-bold text-amber-600">{stats.updates.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Deletes</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.deletes.toLocaleString()}</p>
+                </div>
+            </div>
+
             {/* Filters */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -184,8 +236,8 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ facilityId }) => {
                                 </td>
                                 <td className="p-4">
                                     <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'INSERT' ? 'bg-green-100 text-green-800' :
-                                            log.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
+                                        log.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
                                         }`}>
                                         {log.action}
                                     </span>

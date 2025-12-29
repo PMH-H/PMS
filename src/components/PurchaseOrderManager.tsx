@@ -233,8 +233,8 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Purchase Orders</h2>
-                    <p className="text-sm text-gray-500">Manage procurement and stock orders</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Requisitions</h2>
+                    <p className="text-sm text-gray-500">Manage procurement and stock requisitions</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
@@ -243,7 +243,7 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    New Purchase Order
+                    New Requisition
                 </button>
             </div>
 
@@ -255,8 +255,8 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
                             key={status}
                             onClick={() => setFilter(status)}
                             className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filter === status
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {status === 'all' ? 'ALL' : status}
@@ -287,7 +287,7 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
                             <div>
-                                <span className="text-gray-500">Order Date:</span>
+                                <span className="text-gray-500">Date:</span>
                                 <p className="font-medium">{new Date(po.order_date).toLocaleDateString()}</p>
                             </div>
                             {po.expected_delivery_date && (
@@ -315,7 +315,7 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
                                     onClick={() => updatePOStatus(po.id, 'SUBMITTED')}
                                     className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700"
                                 >
-                                    Submit for Approval
+                                    Submit
                                 </button>
                             )}
                             {po.status === 'SUBMITTED' && currentUser.role === 'admin' && (
@@ -360,12 +360,12 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
 
             {orders.length === 0 && (
                 <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-                    <p className="text-gray-500 mb-4">No purchase orders found</p>
+                    <p className="text-gray-500 mb-4">No requisitions found</p>
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="text-indigo-600 font-bold hover:text-indigo-700"
                     >
-                        Create your first purchase order
+                        Create your first requisition
                     </button>
                 </div>
             )}
@@ -374,13 +374,13 @@ const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({ currentUser
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}>
                     <div className="bg-white rounded-2xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-6">New Purchase Order</h3>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6">New Requisition</h3>
 
                         <form onSubmit={handleCreatePO} className="space-y-6">
                             {/* Supplier & Date */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Supplier</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Supplier *</label>
                                     <select
                                         required
                                         value={formData.supplier_id}

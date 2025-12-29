@@ -131,11 +131,12 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
+    const [filterType, setFilterType] = useState<string>('ALL');
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isCatalogSearch, setIsCatalogSearch] = useState(true); // Toggle between searching master vs creating new
 
     // Form State
-    const [formData, setFormData] = useState<Omit<InventoryItem, 'id'> & { sellingPrice?: number }>({
+    const [formData, setFormData] = useState<Omit<InventoryItem, 'id'> & { sellingPrice?: number, type: string }>({
         name: '',
         currentStock: 0,
         minLevel: 10,
@@ -145,7 +146,8 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         category: 'C',
         expirationDate: new Date().toISOString().split('T')[0],
         leadTime: 1,
-        abcCategory: 'C'
+        abcCategory: 'C',
+        type: 'DRUG'
     });
 
     // --- DELETE MODAL STATE ---
@@ -188,6 +190,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                         category: formData.abcCategory,
                         min_level: formData.minLevel,
                         max_level: formData.maxLevel,
+                        type: formData.type
                     })
                     .eq('id', editingItem.id);
 
@@ -240,7 +243,11 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             sku: `SKU-${Date.now()}`,
                             is_global: false,
                             facility_id: currentUser?.facility_id,
-                            price_cents: formData.sellingPrice || formData.costPerUnit || 0
+                            is_global: false,
+                            facility_id: currentUser?.facility_id,
+                            price_cents: formData.sellingPrice || formData.costPerUnit || 0,
+                            type: formData.type,
+                            is_prescribable: formData.type === 'DRUG'
                         })
                         .select()
                         .single();
@@ -274,7 +281,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 name: '', currentStock: 0, minLevel: 10, maxLevel: 100,
                 costPerUnit: 0, category: 'C',
                 expirationDate: new Date().toISOString().split('T')[0],
-                leadTime: 1, abcCategory: 'C'
+                leadTime: 1, abcCategory: 'C', type: 'DRUG'
             });
         } catch (err: any) {
             console.error("Inventory Error:", err);
@@ -428,7 +435,8 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         const filteredInventory = inventory.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = filterCategory === 'ALL' || item.abcCategory === filterCategory;
-            return matchesSearch && matchesCategory;
+            const matchesType = filterType === 'ALL' || item.type === filterType || (!item.type && filterType === 'DRUG');
+            return matchesSearch && matchesCategory && matchesType;
         });
 
         return (
@@ -437,7 +445,19 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         <span>📦</span> Current Inventory ({filteredInventory.length})
                     </h3>
-                    <div className="flex gap-2 w-full md:w-auto">
+                    <div className="flex gap-2 w-full md:w-auto items-center">
+                        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                            {['ALL', 'DRUG', 'EQUIPMENT', 'SUPPLY', 'SERVICE'].map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => setFilterType(type)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${filterType === type ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
+                                >
+                                    {type === 'ALL' ? 'All' : type.charAt(0) + type.slice(1).toLowerCase()}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="h-6 w-px bg-gray-300 mx-2"></div>
                         <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
@@ -449,7 +469,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                             <option value="C">Class C (Low Value)</option>
                         </select>
                         <button
-                            onClick={() => { setEditingItem(null); setFormData({ name: '', currentStock: 0, minLevel: 10, maxLevel: 100, costPerUnit: 0, category: 'C', expirationDate: '', leadTime: 1, abcCategory: 'C' }); setIsInventoryModalOpen(true); }}
+                            onClick={() => { setEditingItem(null); setFormData({ name: '', currentStock: 0, minLevel: 10, maxLevel: 100, costPerUnit: 0, category: 'C', expirationDate: '', leadTime: 1, abcCategory: 'C', type: 'DRUG' }); setIsInventoryModalOpen(true); }}
                             className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-all active:scale-95"
                         >
                             <span>+</span> Add Item
@@ -813,99 +833,114 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                     />
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">ABC Category</label>
+                                <div className="col-span-2 md:col-span-1">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Product Type</label>
                                     <select
-                                        value={formData.category}
-                                        onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     >
-                                        <option value="A">Class A (High Value)</option>
-                                        <option value="B">Class B (Moderate)</option>
-                                        <option value="C">Class C (Low Value)</option>
+                                        <option value="DRUG">Medicine / Drug</option>
+                                        <option value="EQUIPMENT">Medical Equipment</option>
+                                        <option value="SUPPLY">Consumable Supply</option>
+                                        <option value="SERVICE">Service</option>
                                     </select>
                                 </div>
+                                <div className="col-span-2 md:col-span-1">
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Cost Per Unit (ZMW)</label>
-                                    <input
-                                        type="number" step="0.01" min="0"
-                                        value={formData.costPerUnit}
-                                        onChange={(e) => setFormData({ ...formData, costPerUnit: parseFloat(e.target.value) || 0 })}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        placeholder="Purchase cost"
-                                    />
-                                    <p className="text-xs text-gray-400 mt-1">Your purchase cost</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-emerald-700 mb-1">💰 Selling Price (ZMW)</label>
-                                    <input
-                                        type="number" step="0.01" min="0"
-                                        value={formData.sellingPrice || 0}
-                                        onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
-                                        className="w-full border border-emerald-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-emerald-50"
-                                        placeholder="Price for customers"
-                                    />
-                                    <p className="text-xs text-emerald-600 mt-1">Price shown in shop</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 col-span-2 grid grid-cols-3 gap-4">
-                                    <div className="col-span-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Stock Parameters</div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">ABC Category</label>
+                                        <select
+                                            value={formData.category}
+                                            onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+                                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
+                                            <option value="A">Class A (High Value)</option>
+                                            <option value="B">Class B (Moderate)</option>
+                                            <option value="C">Class C (Low Value)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Cost Per Unit (ZMW)</label>
                                         <input
-                                            placeholder="e.g., 100"
-                                            required type="number" min="0"
-                                            value={formData.currentStock || 0}
-                                            onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            type="number" step="0.01" min="0"
+                                            value={formData.costPerUnit}
+                                            onChange={(e) => setFormData({ ...formData, costPerUnit: parseFloat(e.target.value) || 0 })}
+                                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="Purchase cost"
                                         />
+                                        <p className="text-xs text-gray-400 mt-1">Your purchase cost</p>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Min Level</label>
+                                        <label className="block text-sm font-bold text-emerald-700 mb-1">💰 Selling Price (ZMW)</label>
                                         <input
-                                            required type="number" min="0"
-                                            value={formData.minLevel || 0}
-                                            onChange={(e) => setFormData({ ...formData, minLevel: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            type="number" step="0.01" min="0"
+                                            value={formData.sellingPrice || 0}
+                                            onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
+                                            className="w-full border border-emerald-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-emerald-50"
+                                            placeholder="Price for customers"
                                         />
+                                        <p className="text-xs text-emerald-600 mt-1">Price shown in shop</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Max Level</label>
-                                        <input
-                                            required type="number" min="0"
-                                            value={formData.maxLevel || 0}
-                                            onChange={(e) => setFormData({ ...formData, maxLevel: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                        />
+                                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 col-span-2 grid grid-cols-3 gap-4">
+                                        <div className="col-span-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Stock Parameters</div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
+                                            <input
+                                                placeholder="e.g., 100"
+                                                required type="number" min="0"
+                                                value={formData.currentStock || 0}
+                                                onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Min Level</label>
+                                            <input
+                                                required type="number" min="0"
+                                                value={formData.minLevel || 0}
+                                                onChange={(e) => setFormData({ ...formData, minLevel: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Max Level</label>
+                                            <input
+                                                required type="number" min="0"
+                                                value={formData.maxLevel || 0}
+                                                onChange={(e) => setFormData({ ...formData, maxLevel: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Lead Time (days)</label>
+                                            <input
+                                                type="number" min="0"
+                                                value={formData.leadTime || 0}
+                                                onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
                                     </div>
+
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Lead Time (days)</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Expiration Date</label>
                                         <input
-                                            type="number" min="0"
-                                            value={formData.leadTime || 0}
-                                            onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            required type="date"
+                                            value={formData.expirationDate}
+                                            onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
+                                            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none"
                                         />
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Expiration Date</label>
-                                    <input
-                                        required type="date"
-                                        value={formData.expirationDate}
-                                        onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none"
-                                    />
+                                <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+                                    <button type="button" onClick={() => setIsInventoryModalOpen(false)} className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
+                                    <button type="submit" className="px-6 py-2.5 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-medium shadow-md">
+                                        {editingItem ? 'Save Changes' : 'Create Item'}
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
-                                <button type="button" onClick={() => setIsInventoryModalOpen(false)} className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-                                <button type="submit" className="px-6 py-2.5 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-medium shadow-md">
-                                    {editingItem ? 'Save Changes' : 'Create Item'}
-                                </button>
-                            </div>
                         </form>
                     </div>
                 </div>

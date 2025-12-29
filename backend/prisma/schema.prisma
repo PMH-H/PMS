@@ -30,13 +30,14 @@ model Facility {
   longitude Decimal?
   created_at DateTime @default(now())
 
+  batches   ItemBatch[]
+
   @@map("facilities")
 }
 
 model Prescription {
   id              String   @id @default(uuid())
   patient_id      String
-  provider_id     String?
   facility_id     String?
   status          String   // 'pending', 'active', 'completed', 'cancelled'
   medications     Json?    // [{ name, dosage, quantity }]

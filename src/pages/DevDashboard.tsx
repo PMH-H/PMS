@@ -12,6 +12,7 @@ import DevTools from '../components/DevTools';
 import AuditLogViewer from '../components/AuditLogViewer';
 import CreateUserForm from '../components/CreateUserForm'; // Updated import
 import PlatformMetricsPanel from '../components/PlatformMetricsPanel';
+import SystemAlertsManager from '../components/SystemAlertsManager';
 
 interface DevDashboardProps {
     currentUser: User;
@@ -314,6 +315,9 @@ const DevDashboard: React.FC<DevDashboardProps> = ({ currentUser, onUpdateUser, 
                 {/* System Controls */}
                 {activeTab === 'SYSTEM' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
+                        {/* Global Alerts Management */}
+                        <SystemAlertsManager />
+
                         <FeatureFlagManager currentUserId={currentUser.id} />
 
                         {/* System Actions */}

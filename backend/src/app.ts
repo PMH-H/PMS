@@ -16,13 +16,17 @@ app.use(helmet());
 app.use(morgan('dev'));
 
 // Health Check
-app.get('/health', (req, res) => {
+// Health Check
+const healthCheck = (req: express.Request, res: express.Response) => {
     res.json({
         status: 'ok',
         version: '2.0.5',
         timestamp: new Date().toISOString()
     });
-});
+};
+
+app.get('/health', healthCheck);
+app.get('/api/health', healthCheck);
 
 // Routes
 app.use('/api/client', clientRoutes);

@@ -183,7 +183,44 @@ export const processSale = async (facilityId: string, items: SaleItem[], custome
     const totalPrice = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     const { data: sale, error: saleError } = await supabase.from('sales').insert([{ facility_id: facilityId, items: items, total_price: totalPrice, customer_info: customerInfo }]).select().single();
     if (saleError) throw saleError;
-    // FEFO Logic for stock update would go here...
+
+    // Process Stock Deduction
+    for (const item of items) {
+        // 1. Check Item Type (Skip Services)
+        const { data: inventoryItem } = await supabase.from('items').select('type').eq('id', item.item_id).single();
+        if (inventoryItem?.type === 'SERVICE') continue;
+
+        let remainingQty = item.quantity;
+
+        // 2. batch_id provided (specific batch)
+        if (item.batch_id) {
+            const { data: batch } = await supabase.from('item_batches').select('current_quantity').eq('id', item.batch_id).single();
+            if (batch) {
+                await supabase.from('item_batches').update({ current_quantity: Math.max(0, batch.current_quantity - item.quantity) }).eq('id', item.batch_id);
+            }
+        } else {
+            // 3. FEFO Logic (First Expired First Out)
+            const { data: batches } = await supabase
+                .from('item_batches')
+                .select('*')
+                .eq('item_id', item.item_id)
+                .eq('facility_id', facilityId)
+                .gt('current_quantity', 0) // Only look at batches with stock
+                .order('expiry_date', { ascending: true }); // Use oldest expiry first
+
+            if (batches) {
+                for (const batch of batches) {
+                    if (remainingQty <= 0) break;
+                    const deduct = Math.min(batch.current_quantity, remainingQty);
+                    await supabase.from('item_batches')
+                        .update({ current_quantity: batch.current_quantity - deduct })
+                        .eq('id', batch.id);
+                    remainingQty -= deduct;
+                }
+            }
+        }
+    }
+
     return sale;
 };
 
@@ -878,4 +915,51 @@ export const getPeriodSalesReport = async (facilityId: string, startDate: string
     });
     if (error) throw error;
     return data as any[];
+};
+
+// =====================================================
+// SYSTEM ALERTS & MAINTENANCE
+// =====================================================
+
+export const getSystemAlerts = async (activeOnly: boolean = true) => {
+    let query = supabase
+        .from('system_alerts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (activeOnly) {
+        query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+        // Handle table not exists gracefully if migration pending
+        if (error.code === '42P01') return [];
+        throw error;
+    }
+    return data || [];
+};
+
+export const createSystemAlert = async (alert: { message: string, type: string, expires_at?: string }) => {
+    const { data, error } = await supabase
+        .from('system_alerts')
+        .insert([{
+            ...alert,
+            created_by: (await supabase.auth.getUser()).data.user?.id
+        }])
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const deactivateSystemAlert = async (alertId: string) => {
+    const { data, error } = await supabase
+        .from('system_alerts')
+        .update({ is_active: false })
+        .eq('id', alertId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
 };

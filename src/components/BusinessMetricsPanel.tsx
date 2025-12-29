@@ -22,6 +22,7 @@ interface BusinessMetrics {
 
     // Inventory metrics
     totalProducts: number;
+    inventoryValue: number;
     lowStockItems: number;
     outOfStockItems: number;
     inventoryTurnover: number;
@@ -44,99 +45,98 @@ const BusinessMetricsPanel: React.FC<{ facilityId?: string }> = ({ facilityId })
     const [metrics, setMetrics] = useState<BusinessMetrics | null>(null);
     const [trendData, setTrendData] = useState<TimeSeriesData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+    const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | '90d'>('24h');
 
     useEffect(() => {
         fetchMetrics();
         fetchTrendData();
     }, [facilityId, timeRange]);
 
-    const fetchMetrics = async () => {
-        try {
-            const now = new Date();
-            const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
-            // Fetch prescriptions
-            const [allRx, pendingRx, todayRx] = await Promise.all([
-                supabase.from('prescriptions').select('*', { count: 'exact', head: true }),
-                supabase.from('prescriptions').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
-                supabase.from('prescriptions').select('id, status, created_at').gte('created_at', startOfDay),
-            ]);
-
-            const todayData = todayRx.data || [];
-            const approvedToday = todayData.filter(rx => rx.status === 'APPROVED').length;
-            const rejectedToday = todayData.filter(rx => rx.status === 'REJECTED').length;
-
-            // Fetch users
-            const [allUsers, newUsers] = await Promise.all([
-                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer').gte('created_at', startOfMonth),
-            ]);
-
-            // Fetch inventory
-            const [items, lowStock] = await Promise.all([
-                supabase.from('items').select('*', { count: 'exact', head: true }),
-                supabase.from('item_batches').select('*, item:items(name)').lt('current_quantity', 10),
-            ]);
-
-            const lowStockData = lowStock.data || [];
-            const outOfStock = lowStockData.filter(b => b.current_quantity === 0).length;
-
-            // Fetch facilities
-            const { data: facilities, count: facilityCount } = await supabase
-                .from('facilities')
-                .select('*', { count: 'exact' });
-
-            const activeFacilities = facilities?.filter(f => f.is_active !== false).length || 0;
-
-            setMetrics({
-                totalPrescriptions: allRx.count || 0,
-                pendingPrescriptions: pendingRx.count || 0,
-                approvedToday,
-                rejectedToday,
-                avgProcessingTime: 24, // Placeholder - would need timestamp comparison
-
-                estimatedRevenue: (allRx.count || 0) * 150, // Rough estimate
-                revenueGrowth: 12.5,
-                avgOrderValue: 150,
-
-                totalPatients: allUsers.count || 0,
-                newPatientsThisMonth: newUsers.count || 0,
-                repeatCustomerRate: 65,
-
-                totalProducts: items.count || 0,
-                lowStockItems: lowStockData.length,
-                outOfStockItems: outOfStock,
-                inventoryTurnover: 4.2,
-
-                totalFacilities: facilityCount || 0,
-                activeFacilities,
-                avgFacilityScore: 85,
-            });
-        } catch (err) {
-            console.error('Error fetching business metrics:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // ...
 
     const fetchTrendData = async () => {
-        // Generate mock trend data based on time range
-        const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-        const data: TimeSeriesData[] = [];
+        try {
+            const isHourly = timeRange === '24h';
+            const days = isHourly ? 1 : (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90);
 
-        for (let i = days - 1; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            data.push({
-                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                prescriptions: Math.floor(Math.random() * 50) + 20,
-                revenue: Math.floor(Math.random() * 5000) + 2000,
+            const endDate = new Date();
+            const startDate = new Date();
+            if (isHourly) {
+                startDate.setHours(startDate.getHours() - 24);
+            } else {
+                startDate.setDate(startDate.getDate() - days);
+            }
+
+            const { data: sales } = await supabase
+                .from('sales')
+                .select('created_at, total_amount')
+                .gte('created_at', startDate.toISOString())
+                .order('created_at');
+
+            // Group by Date or Hour
+            const grouped: Record<string, { revenue: number, count: number }> = {};
+
+            if (isHourly) {
+                // Initialize last 24 hours
+                for (let i = 0; i < 24; i++) {
+                    const d = new Date();
+                    d.setHours(d.getHours() - i);
+                    const k = d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    grouped[k] = { revenue: 0, count: 0 };
+                }
+            } else {
+                // Init empty days
+                for (let i = 0; i < days; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const k = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    grouped[k] = { revenue: 0, count: 0 };
+                }
+            }
+
+            sales?.forEach(sale => {
+                let k;
+                if (isHourly) {
+                    k = new Date(sale.created_at).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                } else {
+                    k = new Date(sale.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+
+                if (grouped[k]) {
+                    grouped[k].revenue += Number(sale.total_amount);
+                    grouped[k].count += 1;
+                }
             });
-        }
 
-        setTrendData(data);
+            const data = [];
+            if (isHourly) {
+                for (let i = 23; i >= 0; i--) {
+                    const d = new Date();
+                    d.setHours(d.getHours() - i);
+                    const k = d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    data.push({
+                        date: k,
+                        prescriptions: grouped[k]?.count || 0,
+                        revenue: grouped[k]?.revenue || 0
+                    });
+                }
+            } else {
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const k = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    data.push({
+                        date: k,
+                        prescriptions: grouped[k]?.count || 0,
+                        revenue: grouped[k]?.revenue || 0
+                    });
+                }
+            }
+
+            setTrendData(data);
+        } catch (e) {
+            console.error("Error fetching trends", e);
+        }
     };
 
     const prescriptionStatusData = metrics ? [
@@ -159,7 +159,7 @@ const BusinessMetricsPanel: React.FC<{ facilityId?: string }> = ({ facilityId })
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Business & Operations Metrics</h2>
                 <div className="flex gap-2">
-                    {(['7d', '30d', '90d'] as const).map(range => (
+                    {(['24h', '7d', '30d', '90d'] as const).map(range => (
                         <button
                             key={range}
                             onClick={() => setTimeRange(range)}
@@ -168,7 +168,7 @@ const BusinessMetricsPanel: React.FC<{ facilityId?: string }> = ({ facilityId })
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
-                            {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                            {range === '24h' ? '24 Hours' : range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
                         </button>
                     ))}
                 </div>
@@ -178,23 +178,23 @@ const BusinessMetricsPanel: React.FC<{ facilityId?: string }> = ({ facilityId })
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-5 text-white">
                     <p className="text-xs font-medium text-indigo-100 uppercase">Total Prescriptions</p>
-                    <p className="text-3xl font-bold mt-2">{metrics?.totalPrescriptions.toLocaleString()}</p>
-                    <p className="text-xs text-indigo-200 mt-1">{metrics?.approvedToday} approved today</p>
+                    <p className="text-3xl font-bold mt-2">{(metrics?.totalPrescriptions || 0).toLocaleString()}</p>
+                    <p className="text-xs text-indigo-200 mt-1">{metrics?.approvedToday || 0} approved today</p>
                 </div>
                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white">
-                    <p className="text-xs font-medium text-emerald-100 uppercase">Est. Revenue</p>
-                    <p className="text-3xl font-bold mt-2">K{(metrics?.estimatedRevenue || 0).toLocaleString()}</p>
-                    <p className="text-xs text-emerald-200 mt-1">↑ {metrics?.revenueGrowth}% growth</p>
+                    <p className="text-xs font-medium text-emerald-100 uppercase">Inventory Value</p>
+                    <p className="text-3xl font-bold mt-2">K{(metrics?.inventoryValue || 0).toLocaleString()}</p>
+                    <p className="text-xs text-emerald-200 mt-1">{metrics?.totalProducts || 0} unique items</p>
                 </div>
                 <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-5 text-white">
                     <p className="text-xs font-medium text-amber-100 uppercase">Total Patients</p>
-                    <p className="text-3xl font-bold mt-2">{metrics?.totalPatients.toLocaleString()}</p>
-                    <p className="text-xs text-amber-200 mt-1">+{metrics?.newPatientsThisMonth} this month</p>
+                    <p className="text-3xl font-bold mt-2">{(metrics?.totalPatients || 0).toLocaleString()}</p>
+                    <p className="text-xs text-amber-200 mt-1">+{(metrics?.newPatientsThisMonth || 0)} this month</p>
                 </div>
                 <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white">
                     <p className="text-xs font-medium text-purple-100 uppercase">Active Facilities</p>
-                    <p className="text-3xl font-bold mt-2">{metrics?.activeFacilities}/{metrics?.totalFacilities}</p>
-                    <p className="text-xs text-purple-200 mt-1">{metrics?.avgFacilityScore}% avg score</p>
+                    <p className="text-3xl font-bold mt-2">{metrics?.activeFacilities || 0}/{metrics?.totalFacilities || 0}</p>
+                    <p className="text-xs text-purple-200 mt-1">{metrics?.avgFacilityScore || 0}% avg score</p>
                 </div>
             </div>
 
