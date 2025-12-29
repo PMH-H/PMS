@@ -7,9 +7,7 @@ export const supabase = supabaseCore;
 // Helper to check connection
 export const checkSupabaseConnection = async () => {
     try {
-        if (!supabaseUrl || !supabaseAnonKey) return false;
-
-        // Attempt a lightweight query to verify connectivity
+        // Simple connectivity check
         const { error } = await supabase.from('items').select('count', { count: 'exact', head: true });
 
         if (error) {

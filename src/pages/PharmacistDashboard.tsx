@@ -18,6 +18,7 @@ import PharmacyRegistrationForm from '../components/PharmacyRegistrationForm';
 import { createJoinRequest, leaveFacility } from '../services/userHierarchyService';
 import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
+import { deleteInventory as apiDeleteInventory } from '../services/apiService';
 
 interface PharmacistDashboardProps {
     currentUser?: User;
@@ -146,6 +147,34 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
         leadTime: 1,
         abcCategory: 'C'
     });
+
+    // --- DELETE MODAL STATE ---
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
+    const [deleteReason, setDeleteReason] = useState('');
+
+    const handleDeleteClick = (item: InventoryItem) => {
+        setItemToDelete(item);
+        setDeleteReason('');
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!itemToDelete || !deleteReason) {
+            toast.error("Please provide a reason.");
+            return;
+        }
+        try {
+            await apiDeleteInventory(itemToDelete.id, deleteReason);
+            toast.success("Item deleted successfully");
+            setIsDeleteModalOpen(false);
+            setItemToDelete(null);
+            // Optimistic update or reload? Reload for safety with new backend sync
+            window.location.reload();
+        } catch (error: any) {
+            toast.error("Delete failed: " + error.message);
+        }
+    };
 
     const handleInventorySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -480,7 +509,7 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                                                     ✏️
                                                 </button>
                                                 <button
-                                                    onClick={() => onDeleteInventory(item.id)}
+                                                    onClick={() => handleDeleteClick(item)}
                                                     className="text-red-500 hover:bg-red-100 p-2 rounded-lg transition-colors"
                                                     title="Delete"
                                                 >
@@ -726,6 +755,43 @@ const PharmacistDashboard: React.FC<PharmacistDashboardProps> = ({
                 )}
                 {activeGroup === 'COMMUNICATION' && renderCommunication()}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && itemToDelete && (
+                <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200 p-6">
+                        <h3 className="font-bold text-lg text-gray-900 mb-2">Delete Inventory Item</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Are you sure you want to delete <span className="font-bold text-gray-800">{itemToDelete.name}</span>?
+                            This action requires an audit reason.
+                        </p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Reason for Deletion</label>
+                            <textarea
+                                value={deleteReason}
+                                onChange={(e) => setDeleteReason(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                                rows={3}
+                                placeholder="e.g., Expired, Damaged, Data Entry Error..."
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700"
+                            >
+                                Confirm Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Inventory Modal (Add/Edit) */}
             {isInventoryModalOpen && (

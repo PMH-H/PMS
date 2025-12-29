@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.84.0",
     "@types/leaflet": "^1.9.21",
     "@zxing/library": "^0.21.3",
+    "axios": "^1.13.2",
     "deno": "^2.5.6",
     "dotenv": "^17.2.3",
     "leaflet": "^1.9.4",

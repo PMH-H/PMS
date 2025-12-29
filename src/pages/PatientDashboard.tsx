@@ -21,6 +21,7 @@ const AdherenceTracker = React.lazy(() => import('../components/AdherenceTracker
 const SymptomCheckIn = React.lazy(() => import('../components/SymptomCheckIn'));
 
 import { useNotifications } from '../hooks/useNotifications';
+import { useClientBootstrap } from '../hooks/useClientBootstrap';
 import { Medication, Prescription, PrescriptionStatus, Notification, Drug, DrugBatch, PrivacySettings, User, UserRole } from '../types';
 import { analyzePrescriptionImage, checkDrugInteractions, analyzeSymptomInput } from '../services/geminiService';
 import { generateUUID } from '../utils/uuid';
@@ -112,6 +113,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
     const { toasts, removeToast, success, error, info } = useNotifications();
     const [localNotifications, setLocalNotifications] = useState<Notification[]>(props.notifications);
     const [showCharts, setShowCharts] = useState(false); // Move state to top level
+
+    // Use Bootstrap Hook for Instant Load
+    const { data: bootstrapData } = useClientBootstrap();
+    const displayPrescriptions = bootstrapData?.active_rx_summary || props.prescriptions;
 
     // --- EFFECTS ---
     useEffect(() => {
@@ -234,8 +239,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
         Prescriptions: (
             <div className="bg-white p-4 rounded-xl shadow-sm border col-span-2">
                 <h3 className="font-bold text-slate-800 mb-3">My Prescriptions</h3>
-                {props.prescriptions.length > 0 ? (
-                    props.prescriptions.map(p =>
+                {displayPrescriptions.length > 0 ? (
+                    displayPrescriptions.map(p =>
                         <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full text-left p-3 border-b last:border-b-0 hover:bg-slate-50 rounded-lg transition-colors group">
                             <div className='flex justify-between items-center mb-1'>
                                 <span className={`font-medium ${p.medications && p.medications.length > 0 ? 'text-slate-900' : 'text-slate-500 italic'}`}>
@@ -404,7 +409,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                                 />
                             </div>
                             <h3 className="font-bold text-slate-800 mb-2">History</h3>
-                            {props.prescriptions.map(p => (
+                            {displayPrescriptions.map(p => (
                                 <button key={p.id} onClick={() => setSelectedPrescription(p)} className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center hover:bg-slate-50 transition-colors">
                                     <div className="text-left">
                                         <div className="font-bold text-slate-800">{p.medications && p.medications.length > 0 ? p.medications[0].name + (p.medications.length > 1 ? ` +${p.medications.length - 1} more` : '') : 'Prescription #' + p.id.slice(0, 6)}</div>
@@ -417,7 +422,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = (props) => {
                                     </div>
                                 </button>
                             ))}
-                            {props.prescriptions.length === 0 && (
+                            {displayPrescriptions.length === 0 && (
                                 <div className="text-center py-10 text-gray-400">No prescriptions found.</div>
                             )}
                         </div>

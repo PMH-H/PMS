@@ -61,7 +61,46 @@ const App: React.FC = () => {
   // Realtime is now handled in NotificationContext and specific hooks
   // But we might want to trigger a data refresh on certain events?
   // ideally useDashboardData should handle its own subscriptions or we pass a signal.
-  // For now, relying on NotificationContext to notify user, and they might refresh, or we can add auto-refresh logic later.
+  const [systemStatus, setSystemStatus] = useState<'healthy' | 'db_down' | 'api_down'>('healthy');
+
+  // Monitor Database & API Connection (Global Sentinel)
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const { checkSupabaseConnection } = await import('@/services/supabase');
+        // Check DB
+        const isDbConnected = await checkSupabaseConnection();
+
+        // Check API (Quick timeout)
+        let isApiHealthy = false;
+        try {
+          // Assuming API is at /api or relative if proxy set, or absolute.
+          // Using relative /health assuming proxy is set in Vite.
+          // If dev, it might be http://localhost:3000/health
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch('/api/health', { signal: controller.signal });
+          clearTimeout(timeoutId);
+          isApiHealthy = res.ok;
+        } catch (e) { /* ignore fetch error */ }
+
+        if (!isDbConnected) {
+          setSystemStatus('db_down');
+        } else if (!isApiHealthy && isDbConnected) {
+          // If DB is up but API is down, it's a Backend failure
+          setSystemStatus('api_down');
+        } else {
+          setSystemStatus('healthy');
+        }
+      } catch (e) {
+        setSystemStatus('db_down');
+      }
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -120,11 +159,20 @@ const App: React.FC = () => {
         setPendingUserData({ userId, email });
         setShowProfileSetup(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching user profile:", err);
-      await supabase.auth.signOut();
-      setCurrentUser(null);
-      setPrescriberProfile(null);
+      // Only sign out if the profile is truly missing (PGRST116)
+      // Prevents logout on network flakiness when switching tabs/apps
+      if (err.code === 'PGRST116') {
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+        setPrescriberProfile(null);
+      } else {
+        // For other errors (e.g., Network), keep the session but maybe show a toast
+        // We set authLoading false so at least it doesn't spin forever, 
+        // though without profile data the app might look weird.
+        // Ideally we'd have a 'Retrying...' state.
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -245,7 +293,21 @@ const App: React.FC = () => {
       <ShopProvider>
         <LanguageProvider>
           <NotificationProvider>
-            <div className="min-h-screen bg-slate-50 font-sans">
+
+            <div className="min-h-screen bg-slate-50 flex flex-col">
+              {/* System Offline Alert */}
+              {systemStatus !== 'healthy' && (
+                <div className={`px-4 py-2 text-center text-sm font-bold flex items-center justify-center gap-2 z-50 ${systemStatus === 'db_down' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+                  }`}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  {systemStatus === 'db_down'
+                    ? '⚠️ SYSTEM ALERT: Database Disconnected. Functionality will be limited.'
+                    : '⚠️ SYSTEM WARN: Backend API Unreachable. Real-time features paused.'
+                  }
+                </div>
+              )}
               <Toaster richColors position="top-center" closeButton />
               <NotificationStack />
               <Navbar currentUser={currentUser} onNavigateToProfile={() => setShowProfileModal(true)} />

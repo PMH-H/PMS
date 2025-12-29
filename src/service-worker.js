@@ -17,6 +17,22 @@ const API_CACHE_NAME = 'pharmai-api-cache-v1';
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
+    // Bootstrap API (Stale-While-Revalidate)
+    if (url.pathname.includes('/api/client/bootstrap')) {
+        event.respondWith(
+            caches.open(API_CACHE_NAME).then((cache) => {
+                return cache.match(event.request).then((cachedResponse) => {
+                    const fetchPromise = fetch(event.request).then((networkResponse) => {
+                        cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
+                    });
+                    return cachedResponse || fetchPromise;
+                });
+            })
+        );
+        return;
+    }
+
     // Cache Supabase API calls (select queries, not RPC or mutations ideally, but for now cache GET-like behavior)
     // Supabase REST endpoint format: /rest/v1/
     if (url.pathname.includes('/rest/v1/') && event.request.method === 'GET') {
